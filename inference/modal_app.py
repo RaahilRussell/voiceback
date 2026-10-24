@@ -1,10 +1,9 @@
 """Modal GPU entry point for VoiceBack's official Auto-AVSR adapter."""
 
-from __future__ import annotations
-
 import subprocess
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import modal
 
@@ -114,6 +113,49 @@ def transcribe_official_demo() -> dict[str, object]:
     _download_once(DEMO_VIDEO_URL, source)
     _prepare_video(root, source, video_only)
     return _run_model(video_only, root)
+
+
+web_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install("fastapi[standard]")
+    .add_local_file("inference/model_adapter.py", "/root/model_adapter.py", copy=True)
+)
+
+
+@app.function(image=web_image)
+@modal.asgi_app()
+def web():
+    """Public HTTPS endpoint so a phone on any network can reach the VSR path.
+
+    Mirrors the local FastAPI `/v1/transcriptions` contract and forwards the
+    upload to the T4 `transcribe_video` function. Audio is stripped inside that
+    function; this endpoint never consumes microphone audio.
+    """
+    from fastapi import FastAPI, File, HTTPException
+
+    api = FastAPI(title="VoiceBack public endpoint")
+
+    @api.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @api.post("/v1/transcriptions")
+    async def create_transcription(file: Any = File(...)) -> dict:
+        content_type = file.content_type or ""
+        if not content_type.startswith("video/"):
+            raise HTTPException(status_code=415, detail=f"expected a video upload, got '{content_type or 'unknown'}'")
+        data = await file.read()
+        if not data:
+            raise HTTPException(status_code=400, detail="uploaded video is empty")
+        try:
+            result = transcribe_video.remote(data)
+        except Exception as exc:  # GPU/transport failure
+            raise HTTPException(status_code=502, detail=f"visual speech backend failed: {exc}") from exc
+        if result.get("audio_used"):
+            raise HTTPException(status_code=500, detail="video-only contract violated: audio_used was true")
+        return result
+
+    return api
 
 
 @app.local_entrypoint()

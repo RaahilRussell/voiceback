@@ -48,9 +48,9 @@ final class CommunicationViewModel: ObservableObject {
     private let capture = CameraCaptureService()
     private let backendURL: URL
 
-    /// Defaults to localhost for the simulator; set to the Mac's LAN address for
-    /// on-device testing (and add an ATS exception if using plain HTTP).
-    init(backendURL: URL = URL(string: "http://127.0.0.1:8000")!) {
+    /// Public Modal HTTPS endpoint so a physical iPhone can reach the backend
+    /// even when campus Wi-Fi blocks phone-to-Mac LAN traffic.
+    init(backendURL: URL = URL(string: "https://raahil-32424--voiceback-inference-web.us-east.modal.run")!) {
         self.backendURL = backendURL
     }
 
