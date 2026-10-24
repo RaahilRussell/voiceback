@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.config import settings
@@ -13,6 +15,8 @@ API_VERSION = "0.1.0"
 
 # Bounded to a short utterance; the iOS client caps recording duration too.
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+logger = logging.getLogger("voiceback.transcriptions")
 
 router = APIRouter(prefix="/v1", tags=["v1"])
 
@@ -64,4 +68,13 @@ async def create_transcription(
     if result.get("audio_used"):
         raise HTTPException(status_code=500, detail="video-only contract violated: audio_used was true")
 
+    logger.info(
+        "transcription ok: bytes=%d text=%r frames=%s audio_used=%s secs=%s device=%s",
+        len(data),
+        result.get("text"),
+        result.get("frames"),
+        result.get("audio_used"),
+        result.get("inference_seconds"),
+        result.get("device"),
+    )
     return TranscriptionResponse(**result)
