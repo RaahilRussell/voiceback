@@ -17,7 +17,7 @@ Last updated: 2026-10-24
 - Local deploy re-validated 2026-10-24: `modal run inference/modal_app.py` (no GPU) from the repo built the image, uploaded sources, and created both `transcribe_video` and `transcribe_official_demo` functions (run `ap-bMrKSgfv4m3pAp4cKZam7W`). Confirms the app deploys from this machine; produces no transcript.
 - Latest accuracy run: ground truth was “this is the ground truth”; outputs were `THEY TEND TO TURN AROUND TRUTH` (7.245 s) and `THIS IS TURN AROUND TO` (2.554 s). Audio was removed and both ran on `cuda:0`; the outputs are not yet accurate enough for speech output.
 - Stage 01 environment: macOS (Darwin 25.6.0), Apple Silicon arm64; no NVIDIA GPU; PyTorch, ffmpeg, and ground-truth sample videos not present; network available. Backend runs in the Python 3.14.7 `.venv`.
-- Environment: macOS (Darwin 25.6.0); full Xcode **26.6 (Build 17F113)** installed at `/Users/raahil/Downloads/Xcode.app` with iOS **26.5** simulator runtime available; `xcode-select -p` still points at `/Library/Developer/CommandLineTools`, so builds are run with `DEVELOPER_DIR` pointed at the full Xcode. Python **3.14.7** in an isolated `.venv` (system Python is PEP 668 externally-managed).
+- Environment: macOS (Darwin 25.6.0); full Xcode **26.6 (Build 17F113)** installed at `/Users/raahil/Downloads/Xcode.app` with iOS **26.5** simulator runtime available; system `xcode-select -p` now points at the full Xcode after administrator approval. Python **3.14.7** in an isolated `.venv` (system Python is PEP 668 externally-managed).
 
 ## Stage status
 
@@ -42,7 +42,7 @@ Last updated: 2026-10-24
 - [x] Add `.env.example`, local ignored `.env`, and secret/artifact ignore rules.
 - [x] Verify full Xcode project parse (`xcodebuild -list` succeeds under Xcode 26.6).
 - [x] Verify simulator build succeeds after removing `Info.plist` from Copy Bundle Resources.
-- [x] Verify app installs and launches in iPhone 17 simulator (`com.voiceback.app`).
+- [x] Verify app installs and launches in iPhone 17 simulator (`com.raahilrussell.voiceback`).
 - [x] Add typed product API schemas and versioned router tests (`app/schemas/health.py`, `app/api/v1.py`, `tests/test_api_v1.py`, `tests/test_config.py`).
 - [x] Commit foundation fix and progress evidence.
 
@@ -110,6 +110,17 @@ Targets: VoiceBack, VoiceBackTests ; Schemes: VoiceBack ; Configs: Debug, Releas
 # xcrun simctl install ... /tmp/VoiceBackDerived2/Build/Products/Debug-iphonesimulator/VoiceBack.app
 # xcrun simctl launch ... com.voiceback.app
 com.voiceback.app: 89845
+
+# latest simulator build after Swift UI fix
+# make simulator-build
+** BUILD SUCCEEDED **
+
+# xcrun simctl install booted /tmp/VoiceBackDerived/Build/Products/Debug-iphonesimulator/VoiceBack.app
+# xcrun simctl launch booted com.raahilrussell.voiceback
+com.raahilrussell.voiceback: 758
+
+# .venv/bin/python -m pytest backend/tests -q
+13 passed, 1 warning
 
 # xcodebuild ... -scheme VoiceBack -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' test
 Test Suite 'All tests' passed

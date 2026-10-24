@@ -39,6 +39,7 @@ final class CommunicationViewModel: ObservableObject {
         case recording
         case uploading
         case result(TranscriptionResponse)
+        case approved(TranscriptionResponse)
         case failed(String)
     }
 
@@ -87,13 +88,21 @@ final class CommunicationViewModel: ObservableObject {
         capture.stopRecording()
     }
 
+    func approve(_ response: TranscriptionResponse) {
+        guard response.interpretation != nil else { return }
+        state = .approved(response)
+        statusMessage = "Approved. Speech output is ready once voice synthesis is connected."
+    }
+
     private func upload(_ fileURL: URL) async {
         state = .uploading
         statusMessage = "Uploading to the visual speech model…"
         do {
             let response = try await TranscriptionAPIClient(baseURL: backendURL).transcribe(fileURL: fileURL)
             state = .result(response)
-            statusMessage = response.text
+            statusMessage = response.interpretation == nil
+                ? response.text
+                : "Gemini correction ready — review and approve before speech"
         } catch {
             state = .failed(error.localizedDescription)
         }

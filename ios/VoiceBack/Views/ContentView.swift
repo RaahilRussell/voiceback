@@ -38,12 +38,24 @@ struct ContentView: View {
 
         case .result(let response):
             VStack(alignment: .leading, spacing: 8) {
-                Text("Model output")
+                ApprovalCard(response: response) {
+                    viewModel.approve(response)
+                }
+                Text("\(response.frames) frames · \(String(format: "%.1f", response.inferenceSeconds))s · audio used: \(response.audioUsed ? "yes" : "no")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(response.text)
+            }
+            Button("Record again") { Task { await viewModel.record() } }
+                .buttonStyle(.borderedProminent)
+
+        case .approved(let response):
+            VStack(spacing: 8) {
+                Text("Approved transcript")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(response.interpretation?.correctedText ?? response.text)
                     .font(.title3)
-                Text("\(response.frames) frames · \(String(format: "%.1f", response.inferenceSeconds))s · audio used: \(response.audioUsed ? "yes" : "no")")
+                Text("Voice synthesis is intentionally not connected yet.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

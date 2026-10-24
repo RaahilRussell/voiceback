@@ -10,6 +10,7 @@ from app.services.visual_speech_model import (
     VisualSpeechModel,
     get_visual_speech_model,
 )
+from app.services.gemini_client import GeminiClient, get_gemini_client
 
 API_VERSION = "0.1.0"
 
@@ -35,15 +36,17 @@ def health_v1() -> HealthResponse:
     )
 
 
-@router.post("/transcriptions", response_model=TranscriptionResponse)
+@router.post("/transcriptions", response_model=TranscriptionResponse, response_model_exclude_none=True)
 async def create_transcription(
     file: UploadFile = File(...),
     model: VisualSpeechModel = Depends(get_visual_speech_model),
+    gemini: GeminiClient = Depends(get_gemini_client),
 ) -> TranscriptionResponse:
-    """Accept a video-only upload and return the real visual-only transcript.
+    """Return raw Auto-AVSR output plus an optional Gemini proposal.
 
     The upload is forwarded to the Modal Auto-AVSR function, which removes audio
-    and resamples before inference. No microphone/audio path is used here.
+    and resamples before inference. No microphone/audio path is used here. Gemini
+    can propose a correction, but this endpoint never treats it as approval to speak.
     """
     content_type = file.content_type or ""
     if not content_type.startswith("video/"):
@@ -77,4 +80,15 @@ async def create_transcription(
         result.get("inference_seconds"),
         result.get("device"),
     )
-    return TranscriptionResponse(**result)
+    interpretation = None
+    if gemini.api_key:
+        try:
+            interpretation = await gemini.interpret(
+                original_text=result["text"],
+                candidates=(result.get("candidates") or [result["text"]])[:5],
+            )
+        except Exception as exc:
+            logger.exception("gemini interpretation failed")
+            raise HTTPException(status_code=502, detail="interpretation backend failed") from exc
+
+    return TranscriptionResponse(**result, interpretation=interpretation)

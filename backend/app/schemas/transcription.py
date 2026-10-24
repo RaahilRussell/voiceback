@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from app.schemas.interpretation import InterpretationResult
+
 
 class TranscriptionResponse(BaseModel):
     """Typed visual-only transcription result returned to the iOS client.
@@ -16,3 +18,4 @@ class TranscriptionResponse(BaseModel):
     device: str
     inference_seconds: float
     model: str
+    interpretation: InterpretationResult | None = None

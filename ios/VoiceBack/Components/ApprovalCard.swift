@@ -1,23 +1,38 @@
+import Foundation
 import SwiftUI
 
 struct ApprovalCard: View {
-    let transcription: Transcription
+    let response: TranscriptionResponse
     let onApprove: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Original interpretation")
+            Text("Original Auto-AVSR transcript")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text(transcription.original)
-            if let corrected = transcription.corrected {
+            Text(response.text)
+            if let interpretation = response.interpretation {
                 Text("Suggested correction")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(corrected).font(.headline)
+                Text(interpretation.correctedText).font(.headline)
+                let confidenceText = String(format: "%.0f%%", interpretation.confidence * 100)
+                Text("Gemini confidence: \(confidenceText)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let question = interpretation.clarificationQuestion {
+                    Text(question)
+                        .font(.subheadline)
+                }
+                Button("Approve for speech", action: onApprove)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(interpretation.needsClarification)
+                    .accessibilityHint("Approval is required before any voice synthesis can run")
+            } else {
+                Text("Gemini correction is unavailable. The original transcript remains unchanged.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            Button("Approve and speak", action: onApprove)
-                .buttonStyle(.borderedProminent)
         }
         .padding()
         .background(.thinMaterial)

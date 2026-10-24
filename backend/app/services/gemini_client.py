@@ -7,6 +7,14 @@ import asyncio
 from app.schemas.interpretation import InterpretationResult
 
 
+def get_gemini_client() -> "GeminiClient":
+    """Build the configured Gemini boundary for dependency injection."""
+
+    from app.config import settings
+
+    return GeminiClient(api_key=settings.gemini_api_key, model=settings.gemini_model)
+
+
 class GeminiClient:
     def __init__(self, api_key: str | None, model: str = "gemini-2.5-flash") -> None:
         self.api_key = api_key
