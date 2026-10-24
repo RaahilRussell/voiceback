@@ -25,9 +25,14 @@ struct ContentView: View {
     @ViewBuilder private var controls: some View {
         switch viewModel.state {
         case .ready:
-            Button("Start silent capture") { Task { await viewModel.record() } }
-                .buttonStyle(.borderedProminent)
-                .accessibilityHint("Uses the front camera and does not record microphone audio")
+            VStack(spacing: 10) {
+                Button("Start silent capture") { Task { await viewModel.record() } }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityHint("Uses the front camera and does not record microphone audio")
+                Button("Enroll my voice (consent)") { Task { await viewModel.enrollVoice() } }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("Records an eight-second voice sample only for Cartesia voice enrollment")
+            }
 
         case .recording:
             Button("Stop") { viewModel.stopRecording() }
@@ -35,6 +40,10 @@ struct ContentView: View {
 
         case .uploading:
             ProgressView()
+
+        case .enrolling:
+            ProgressView("Enrolling consented voice…")
+                .accessibilityHint("The microphone is used only for this explicit voice enrollment sample")
 
         case .result(let response):
             VStack(alignment: .leading, spacing: 8) {

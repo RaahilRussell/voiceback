@@ -2,6 +2,7 @@
 
 import ast
 import base64
+from difflib import SequenceMatcher
 import json
 import os
 import re
@@ -191,7 +192,12 @@ def _requires_gemini(result: dict[str, object]) -> bool:
     if len(candidates) != 1:
         return True
     words = {word.lower() for word in re.findall(r"[A-Za-z]+", candidates[0])}
-    return any(words.intersection(group) for group in _AMBIGUOUS_WORD_GROUPS)
+    if any(words.intersection(group) for group in _AMBIGUOUS_WORD_GROUPS):
+        return True
+    # A single VSR candidate can still be a phrase-level ASR segmentation
+    # error. These tokens are cheap signals for Gemini review; clear ordinary
+    # sentences remain on the fast path.
+    return bool(words.intersection({"yahoo", "yahu", "whois", "whodis"}))
 
 
 def _deterministic_interpretation(result: dict[str, object]) -> dict[str, object]:
@@ -228,8 +234,10 @@ def _interpret_with_gemini(result: dict[str, object]) -> dict[str, object] | Non
         candidates = [str(result.get("text") or "")]
     prompt = (
         "You are a conservative visual-speech verifier. Return exactly one JSON decision. "
-        "Choose only among the supplied candidate sentences; never invent, rewrite, or "
-        "combine words. Do not treat confidence as a calibrated probability. Only add a "
+        "Prefer the supplied candidate sentence. For an obvious phrase-level visual-ASR "
+        "segmentation error, you may propose one minimal correction (for example, "
+        "YAHOO IS THIS -> YO WHO IS THIS), but do not invent a new message. Never combine "
+        "unrelated content. Do not treat confidence as a calibrated probability. Only add a "
         "word_check when the word is present in the supplied text and the alternative is a "
         "plausible lip-motion collision such as PRO/BRO, B/P, M/N, or F/V. Never create "
         "checks for ordinary unambiguous words. Set needs_clarification true for genuine "
@@ -329,8 +337,14 @@ def _sanitize_interpretation(
         supplied = [original_text.strip()]
     normalized = {item.casefold(): item for item in supplied}
     proposed = str(interpretation.get("corrected_text") or "").strip()
-    selected = normalized.get(proposed.casefold(), supplied[0])
-    invalid_proposal = proposed.casefold() not in normalized
+    proposed_key = proposed.casefold()
+    selected = normalized.get(proposed_key, supplied[0])
+    invalid_proposal = proposed_key not in normalized
+    accepted_phrase_correction = invalid_proposal and _allow_phrase_correction(original_text, proposed)
+    if accepted_phrase_correction:
+        supplied.append(proposed)
+        selected = proposed
+        invalid_proposal = False
     source_words = {word.casefold() for word in re.findall(r"[A-Za-z']+", original_text)}
     safe_checks: list[dict[str, object]] = []
     for raw_check in interpretation.get("word_checks", []) or []:
@@ -377,6 +391,18 @@ def _sanitize_interpretation(
     }
 
 
+def _allow_phrase_correction(original_text: str, proposed_text: str) -> bool:
+    """Allow only a narrow, evidence-preserving phrase correction from Gemini."""
+    source = [word.casefold() for word in re.findall(r"[A-Za-z']+", original_text)]
+    proposed = [word.casefold() for word in re.findall(r"[A-Za-z']+", proposed_text)]
+    if not source or not proposed or len(proposed) > len(source) + 2:
+        return False
+    if not set(source).intersection({"yahoo", "yahu", "whois", "whodis"}):
+        return False
+    overlap = SequenceMatcher(a=source, b=proposed).ratio()
+    return overlap >= 0.50 and len(proposed) <= 6
+
+
 @app.function(image=web_image, secrets=[modal.Secret.from_name("voiceback-secrets")])
 @modal.asgi_app()
 def web():
@@ -386,7 +412,7 @@ def web():
     upload to the T4 `transcribe_video` function. Audio is stripped inside that
     function; this endpoint never consumes microphone audio.
     """
-    from fastapi import FastAPI, File, HTTPException
+    from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
     api = FastAPI(title="VoiceBack public endpoint")
 
@@ -446,6 +472,62 @@ def web():
             "consented": True,
             "voice_id": voice_id,
             "ready": bool(voice_id and (os.getenv("VOICEBACK_CARTESIA_API_KEY") or os.getenv("CARTESIA_API_KEY"))),
+        }
+
+    @api.post("/v1/voices/clone")
+    async def clone_voice(
+        clip: UploadFile = File(...),
+        user_id: str = Form(...),
+        name: str = Form("VoiceBack personal voice"),
+        language: str = Form("en"),
+        consent: bool = Form(...),
+    ) -> dict[str, Any]:
+        """Consent-gated Cartesia voice ingestion from an audio sample."""
+        if consent is not True:
+            raise HTTPException(status_code=403, detail="voice cloning requires explicit consent")
+        api_key = os.getenv("VOICEBACK_CARTESIA_API_KEY") or os.getenv("CARTESIA_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=503, detail="Cartesia API key is not configured")
+        audio = await clip.read()
+        if not audio:
+            raise HTTPException(status_code=400, detail="voice sample is empty")
+        if len(audio) > 20 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="voice sample is too large")
+        import httpx
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "X-API-Key": api_key,
+            "Cartesia-Version": os.getenv("VOICEBACK_CARTESIA_VERSION") or "2025-04-16",
+        }
+        form = {
+            "name": name.strip() or "VoiceBack personal voice",
+            "description": f"VoiceBack consented enrollment for {user_id}",
+            "language": language.strip() or "en",
+            "access": "private",
+        }
+        files = {"clip": (clip.filename or "voice-sample.wav", audio, clip.content_type or "audio/wav")}
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    "https://api.cartesia.ai/voices/clone",
+                    data=form,
+                    files=files,
+                    headers=headers,
+                )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="Cartesia voice ingestion failed") from exc
+        voice_id = payload.get("id") or payload.get("voice_id")
+        if not voice_id:
+            raise HTTPException(status_code=502, detail="Cartesia returned no voice ID")
+        return {
+            "user_id": user_id,
+            "voice_id": str(voice_id),
+            "status": payload.get("status", "ready"),
+            "ready": payload.get("status", "ready") == "ready",
+            "consented": True,
         }
 
     @api.post("/v1/speech")

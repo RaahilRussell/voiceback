@@ -38,6 +38,7 @@ final class CommunicationViewModel: ObservableObject {
         case needsPermission
         case recording
         case uploading
+        case enrolling
         case result(TranscriptionResponse)
         case approved(TranscriptionResponse)
         case failed(String)
@@ -48,7 +49,9 @@ final class CommunicationViewModel: ObservableObject {
 
     private let capture = CameraCaptureService()
     private let voiceOutput = VoiceOutputService()
+    private let voiceEnrollment = VoiceEnrollmentService()
     private let backendURL: URL
+    private(set) var voiceID: String?
 
     /// Public Modal HTTPS endpoint so a physical iPhone can reach the backend
     /// even when campus Wi-Fi blocks phone-to-Mac LAN traffic.
@@ -99,10 +102,26 @@ final class CommunicationViewModel: ObservableObject {
         guard let text = response.interpretation?.correctedText else { return }
         statusMessage = "Generating approved speech…"
         do {
-            try await voiceOutput.speak(text: text, baseURL: backendURL)
+            try await voiceOutput.speak(text: text, baseURL: backendURL, voiceID: voiceID)
             statusMessage = "Speaking approved sentence"
         } catch {
             statusMessage = error.localizedDescription
+        }
+    }
+
+    func enrollVoice() async {
+        state = .enrolling
+        statusMessage = "Voice enrollment: speak naturally for 8 seconds"
+        do {
+            let sample = try await voiceEnrollment.recordSample()
+            let enrolled = try await voiceEnrollment.upload(sampleURL: sample, baseURL: backendURL)
+            voiceID = enrolled.voiceID
+            state = .ready
+            statusMessage = enrolled.ready
+                ? "Personal voice ready — silent speech still uses no microphone"
+                : "Voice submitted — Cartesia is finishing enrollment"
+        } catch {
+            state = .failed(error.localizedDescription)
         }
     }
 
