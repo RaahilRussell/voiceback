@@ -6,7 +6,7 @@ import asyncio
 import json
 from functools import lru_cache
 
-from app.schemas.interpretation import InterpretationResult
+from app.schemas.interpretation import WORD_CONFIDENCE_THRESHOLD, InterpretationResult
 
 
 @lru_cache(maxsize=1)
@@ -64,8 +64,11 @@ class GeminiClient:
             "You are the VoiceBack interpretation layer. Return exactly one JSON decision. "
             "Choose only among the supplied candidate sentences; never invent, rewrite, or "
             "combine words. Use context only to rank candidates. Set needs_clarification true "
-            "when the evidence is ambiguous or confidence is below 0.80. Ask one short yes/no "
-            "question when clarification is needed. Do not treat this response as approval to speak.\n\n"
+            "when the evidence is ambiguous or confidence is below 0.80. Also inspect every "
+            "word for plausible visual confusions such as b/p, m/n, f/v, and voiced/unvoiced "
+            "pairs. Put those in word_checks with alternatives and a per-word confidence; "
+            "a word below 0.80 must set needs_clarification true. Ask one short yes/no question "
+            "when clarification is needed. Do not treat this response as approval to speak.\n\n"
             f"Original visual transcription: {original_text}\n"
             f"Candidates (JSON): {json.dumps(candidates, ensure_ascii=False)}\n"
             f"Conversation context: {context or '(none)'}"
@@ -86,8 +89,30 @@ class GeminiClient:
         if getattr(response, "parsed", None) is not None:
             result = response.parsed
             if isinstance(result, InterpretationResult):
-                return result
-        return InterpretationResult.model_validate_json(response.text)
+                return self._apply_word_safety_gate(result)
+        return self._apply_word_safety_gate(InterpretationResult.model_validate_json(response.text))
+
+    @staticmethod
+    def _apply_word_safety_gate(result: InterpretationResult) -> InterpretationResult:
+        """Never allow a low-confidence word to pass as a high-confidence sentence."""
+
+        uncertain = [
+            check for check in result.word_checks
+            if check.confidence < WORD_CONFIDENCE_THRESHOLD or check.needs_clarification
+        ]
+        if not uncertain:
+            return result
+        question = result.clarification_question
+        if not question:
+            check = uncertain[0]
+            question = f"Did you mean {check.observed_word} or {check.alternatives[0]}?"
+        return InterpretationResult.model_validate(
+            {
+                **result.model_dump(),
+                "needs_clarification": True,
+                "clarification_question": question,
+            }
+        )
 
     async def propose_correction(self, candidates: list[str], context: str = "") -> str:
         """Compatibility helper returning only the selected text."""

@@ -16,7 +16,7 @@ xcuserdata/
 *.mov
 *.wav
 *.m4a
-models/
-checkpoints/
-artifacts/
+/models/
+/checkpoints/
+/artifacts/
 

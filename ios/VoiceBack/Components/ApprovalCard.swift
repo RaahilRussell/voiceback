@@ -20,6 +20,12 @@ struct ApprovalCard: View {
                 Text("Gemini confidence: \(confidenceText)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                ForEach(interpretation.wordChecks, id: \.observedWord) { check in
+                    let wordConfidence = String(format: "%.0f%%", check.confidence * 100)
+                    Text("Check ‘\(check.observedWord)’: \(wordConfidence) — \(check.alternatives.joined(separator: ", "))")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
                 if let question = interpretation.clarificationQuestion {
                     Text(question)
                         .font(.subheadline)
