@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.config import settings
+from app.config import DEFAULT_CARTESIA_VOICE_ID, settings
 from app.schemas.actions import (
     ClarificationRequest,
     ClarificationResponse,
@@ -126,7 +126,7 @@ def enroll_voice(request: VoiceEnrollmentRequest) -> VoiceEnrollmentResponse:
         voice_manager.enroll(request.user_id, request.consent, request.voice_id)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
-    selected = request.voice_id or settings.cartesia_voice_id
+    selected = request.voice_id or settings.cartesia_voice_id or DEFAULT_CARTESIA_VOICE_ID
     return VoiceEnrollmentResponse(
         user_id=request.user_id,
         consented=True,
@@ -140,7 +140,10 @@ async def synthesize_speech(request: SpeechRequest) -> SpeechResponse:
     if not request.approved:
         raise HTTPException(status_code=409, detail="explicit approval is required before speech")
     try:
-        voice_id = voice_manager.voice_id(request.user_id, request.voice_id or settings.cartesia_voice_id)
+        voice_id = voice_manager.voice_id(
+            request.user_id,
+            request.voice_id or settings.cartesia_voice_id or DEFAULT_CARTESIA_VOICE_ID,
+        )
         audio = await cartesia.synthesize_base64(request.text, voice_id)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc

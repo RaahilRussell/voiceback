@@ -32,3 +32,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# Public Cartesia demo voice used only when a personal consented voice has not
+# been configured yet. A user-provided voice ID always overrides this value.
+DEFAULT_CARTESIA_VOICE_ID = "694f9389-aac1-45b6-b726-9d9369183238"
+

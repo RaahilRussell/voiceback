@@ -16,6 +16,7 @@ from model_adapter import ModelAdapter
 
 
 APP_NAME = "voiceback-inference"
+DEFAULT_CARTESIA_VOICE_ID = "694f9389-aac1-45b6-b726-9d9369183238"
 UPSTREAM_REPO = "https://github.com/mpc001/auto_avsr.git"
 DEMO_CHECKPOINT_URL = "gdrive://1r1kx7l9sWnDOCnaFHIGvOtzuhFyFA88_"
 DEMO_VIDEO_URL = "https://raw.githubusercontent.com/datascientistabhishek/Lip-Reading-AI-model/main/%F0%9F%91%84%20AI%20Lip%20Reader.mp4"
@@ -389,7 +390,7 @@ def web():
     async def enroll_voice(payload: dict[str, Any]) -> dict[str, Any]:
         if payload.get("consent") is not True:
             raise HTTPException(status_code=403, detail="voice enrollment requires explicit consent")
-        voice_id = payload.get("voice_id") or os.getenv("VOICEBACK_CARTESIA_VOICE_ID") or os.getenv("CARTESIA_VOICE_ID")
+        voice_id = payload.get("voice_id") or os.getenv("VOICEBACK_CARTESIA_VOICE_ID") or os.getenv("CARTESIA_VOICE_ID") or DEFAULT_CARTESIA_VOICE_ID
         return {
             "user_id": str(payload.get("user_id", "")),
             "consented": True,
@@ -403,7 +404,7 @@ def web():
             raise HTTPException(status_code=409, detail="explicit approval is required before speech")
         text = str(payload.get("text", "")).strip()
         api_key = os.getenv("VOICEBACK_CARTESIA_API_KEY") or os.getenv("CARTESIA_API_KEY")
-        voice_id = payload.get("voice_id") or os.getenv("VOICEBACK_CARTESIA_VOICE_ID") or os.getenv("CARTESIA_VOICE_ID")
+        voice_id = payload.get("voice_id") or os.getenv("VOICEBACK_CARTESIA_VOICE_ID") or os.getenv("CARTESIA_VOICE_ID") or DEFAULT_CARTESIA_VOICE_ID
         if not text or not api_key or not voice_id:
             raise HTTPException(status_code=503, detail="Cartesia API key and consented voice ID are required")
         import httpx

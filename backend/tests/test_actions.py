@@ -49,7 +49,7 @@ def test_approved_speech_returns_cartesia_audio(monkeypatch) -> None:
     assert enrollment.status_code == 200
     response = client.post(
         "/v1/speech",
-        json={"user_id": "speech-test", "text": "approved sentence", "approved": True},
+        json={"user_id": "speech-test", "text": "approved sentence", "approved": True, "voice_id": "voice-test"},
     )
     assert response.status_code == 200
     assert response.json() == {"audio_base64": "YXVkaW8=", "content_type": "audio/mpeg"}
