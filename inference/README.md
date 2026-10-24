@@ -27,16 +27,26 @@ until confirmed):** mouth crop size, grayscale vs color, frame rate,
 normalization, face-detection/landmark tooling, and that the `video` loader
 never reads the audio track.
 
-`model_adapter.py` exposes the stable `ModelAdapter.transcribe_video` boundary;
-it stays `NotImplementedError` until a verified Auto-AVSR run is wired behind it.
+`model_adapter.py` exposes the stable `ModelAdapter.transcribe_video` boundary.
+The adapter uses the official video preprocessing components, PyAV frame decoding,
+and a CUDA-capable device when available; it does not open or decode microphone
+audio.
 
 ## Modal GPU boundary
 
 `modal_app.py` defines the `voiceback-inference` Modal app and a T4 GPU
-function. It installs FFmpeg and the PyTorch runtime in the remote image, but
-deliberately does not download model weights or fabricate transcripts. The
-Auto-AVSR integration belongs to Stage 01 after the official model contract and
-license are verified.
+function. It installs FFmpeg, PyTorch, compatible legacy MediaPipe, and the
+official Auto-AVSR source in the remote image. On the first real invocation it
+caches the official `vsr_trlrs3_base.pth` checkpoint in the Modal volume
+`voiceback-model-cache`, strips audio from the submitted video, and runs the
+visual-only adapter. It never fabricates a transcript.
+
+Validation completed on 2026-10-24: Modal authentication, image build, source
+upload, checkpoint download, CUDA/MediaPipe initialization, and the video-only
+execution path all ran on a Tesla T4. A public sample fixture reached face
+detection but contained no detectable face, so no transcript is reported as
+successful. A consented front-camera fixture is still required for Stage 01
+benchmark evidence.
 
 One-time local setup:
 
@@ -46,12 +56,14 @@ modal token new
 modal profile current
 ```
 
-Validate the app definition without invoking GPU inference:
+Validate the app definition without invoking model inference:
 
 ```bash
 modal run inference/modal_app.py
 ```
 
-Do not call `transcribe_video` until Stage 01 has a verified checkpoint and
-test fixture. Modal secrets should be created only after credentials are
-available; never place Gemini or Cartesia keys in this file.
+The first call to `transcribe_video.remote(video_bytes)` uses a T4 GPU and
+Modal compute credits. Use only a consented fixture. The official demo
+checkpoint smoke test is separate from VoiceBack's genuine silent-mouthing
+feasibility benchmark. Modal secrets should be created only after credentials
+are available; never place Gemini or Cartesia keys in this file.

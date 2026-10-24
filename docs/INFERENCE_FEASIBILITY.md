@@ -1,6 +1,6 @@
 # Inference feasibility (Stage 01)
 
-Status: **IN PROGRESS — upstream inspection complete; blocked on inputs for real inference.**
+Status: **IN PROGRESS — Modal pipeline validated to face detection; blocked on a valid labeled fixture.**
 Last updated: 2026-10-24
 
 This document records the Stage 01 feasibility investigation for visual-only
@@ -41,19 +41,31 @@ in code before implementation — it must not be guessed.
   speech with audio originally present). They are **not** evidence for this
   product's population (genuine silent mouthers) and must not be reported as
   such. Stage 01's job is to measure our own conditions.
-- **Audio assumptions:** `--modality` has independent `video` and `audio`
-  values, implying the video path is visual-only. **PENDING (read from source):**
-  confirm the `video` data loader never opens/decodes the audio stream (Stage 01
-  execution step 6). This must be verified in code, not assumed.
-- **Preprocessing (crop size, grayscale, fps, face-detection/landmark tooling):**
-  **PENDING (read from source)** in the repo's `preparation/` pipeline. The
-  standard visual-speech ROI convention is a mouth-centred grayscale crop at 25
-  fps, but the exact pixel size, normalization, and landmark dependency
-  (e.g. RetinaFace + face alignment) will be taken verbatim from the upstream
-  preparation code before any adapter wiring. Wrong crop/fps/color is the most
-  common cause of a loaded-but-useless checkpoint.
+- **Audio assumptions:** the video-only loader calls video frame processing and
+  has a separate `load_audio` method. VoiceBack additionally removes audio with
+  FFmpeg and verifies zero audio streams with `ffprobe` before invoking the
+  adapter.
+- **Preprocessing:** source inspection confirmed MediaPipe or RetinaFace landmark
+  detection, 96×96 mouth ROI processing, 25 fps source convention, grayscale
+  conversion in the test transform, divide-by-255 scaling, center crop to 88,
+  and normalization `(0.421, 0.165)`. VoiceBack preserves the upstream
+  detector/process/transform boundary.
 
-## 2. This machine's environment (checked 2026-10-24)
+## 2a. Modal validation (completed 2026-10-24)
+
+- Authenticated Modal profile: `raahil-32424`.
+- Image built with FFmpeg, PyTorch, PyAV, PyTorch Lightning, sentencepiece,
+  MediaPipe `0.10.21`, and the official Auto-AVSR checkout.
+- Official `vsr_trlrs3_base.pth` downloaded from the model-zoo Google Drive ID
+  into the Git-ignored Modal volume `voiceback-model-cache`.
+- A T4 job initialized CUDA/EGL and MediaPipe successfully, then ran the
+  audio-stripped video path. The available public sample had no detectable face,
+  so the job stopped at the upstream detector assertion and produced no claimed
+  transcript. This is a fixture limitation, not a model result.
+- The adapter remains unverified for product accuracy until a consented
+  front-camera clip with independent ground truth is supplied.
+
+## 3. This machine's environment (checked 2026-10-24)
 
 | Capability | State |
 |---|---|
@@ -65,7 +77,7 @@ in code before implementation — it must not be guessed.
 | Apple MPS | Possible only after installing a MPS-enabled torch build |
 | Ground-truth sample videos | **None present** |
 
-## 3. Blockers to producing real Stage 01 evidence
+## 4. Blockers to producing real Stage 01 evidence
 
 Stage 01's Definition of Done requires at least one real pretrained
 video→text inference, verified audio-free input, a reusable adapter returning
@@ -88,7 +100,7 @@ are required to produce that evidence and cannot be fabricated or substituted:
    MB). Weights stay outside Git (`checkpoints/`, `models/`, `artifacts/` are
    already ignored).
 
-## 4. Next actions once unblocked
+## 5. Next actions once unblocked
 
 1. Create the chosen isolated environment; record Python/torch/CUDA/GPU versions.
 2. Read `preparation/` to pin exact crop size, fps, color, normalization, and
