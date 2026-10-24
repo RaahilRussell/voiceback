@@ -6,25 +6,61 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                CameraPreviewView()
+                CameraPreviewView(session: viewModel.session)
                     .frame(height: 360)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
 
-                Text(viewModel.status)
+                Text(viewModel.statusMessage)
                     .font(.headline)
                     .multilineTextAlignment(.center)
 
-                Text("Your interpretation will be shown here before any voice is played.")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                Button("Start silent capture") { viewModel.startCapture() }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityHint("Uses the front camera and does not record microphone audio")
+                controls
             }
             .padding()
             .navigationTitle("VoiceBack")
+            .task { await viewModel.prepare() }
+        }
+    }
+
+    @ViewBuilder private var controls: some View {
+        switch viewModel.state {
+        case .ready:
+            Button("Start silent capture") { Task { await viewModel.record() } }
+                .buttonStyle(.borderedProminent)
+                .accessibilityHint("Uses the front camera and does not record microphone audio")
+
+        case .recording:
+            Button("Stop") { viewModel.stopRecording() }
+                .buttonStyle(.bordered)
+
+        case .uploading:
+            ProgressView()
+
+        case .result(let response):
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Model output")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(response.text)
+                    .font(.title3)
+                Text("\(response.frames) frames · \(String(format: "%.1f", response.inferenceSeconds))s · audio used: \(response.audioUsed ? "yes" : "no")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Button("Record again") { Task { await viewModel.record() } }
+                .buttonStyle(.borderedProminent)
+
+        case .failed(let message):
+            Text(message)
+                .foregroundStyle(.red)
+                .multilineTextAlignment(.center)
+            Button("Retry") { Task { await viewModel.record() } }
+                .buttonStyle(.borderedProminent)
+
+        case .needsPermission:
+            Text("Enable camera access in Settings to continue.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
     }
 }
-

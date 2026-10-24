@@ -4,8 +4,11 @@ Last updated: 2026-10-24
 
 ## Current state
 
-- Current active stage: **STAGE 01 — Get real silent lip-reading working** (FEASIBILITY DEMONSTRATED; stopped at gate for approval before Stage 02).
-- Breakthrough 2026-10-24: switching to the best zoo checkpoint `vsr_trlrs2lrs3vox2avsp_base.pth` (+ the 25 fps fix) produced an exact-sentence, **0% WER** audio-free transcript on a consented clip (`IMG_5966.MOV` → "THIS IS THE GROUND TRUTH"); second clip `IMG_5967.MOV` 40% WER (`ground truth`→`crown tooth`, a look-alike confusion). Details in `docs/INFERENCE_FEASIBILITY.md` §2c.
+- Current active stage: **STAGE 02 — iOS video recording and VSR integration** (IMPLEMENTED — UNVERIFIED on device; stopped at the physical-iPhone gate).
+- Stage 01 approved and committed as `121cbf7` (0% WER exact-sentence audio-free transcript on a consented clip with the best checkpoint). Feasibility decision: POSITIVE.
+- Stage 02 implemented 2026-10-24: backend `POST /v1/transcriptions` (multipart upload → deployed Modal T4 VSR → typed `TranscriptionResponse`), with size/type/empty/no-face(422)/provider-failure(502)/audio-used(500) handling; iOS front-camera **video-only** recording (`AVCaptureMovieFileOutput`, bounded 5 s, no mic/`AVAudioSession`), live preview, multipart upload client, and a ready/recording/uploading/result/failed state machine with retry. Info.plist keeps camera-only usage + `NSAllowsLocalNetworking` (no microphone key).
+- Stage 02 evidence: backend suite **13 passed**; the backend provider uploaded the real 9.6 MB clip to the deployed Modal function and received `THIS IS THE GROUND TRUTH` (`audio_used:false`); iOS simulator **build + `xcodebuild test` SUCCEEDED** (Swift 6, no warnings). Simulator cannot exercise the camera, so device behavior is unverified.
+- Stage 02 remaining gate (needs user): run on a real iPhone (Apple signing) against the Mac's LAN backend URL, silently mouth an unseen sentence, confirm the displayed transcript, verify no microphone prompt, and `ffprobe` the recorded clip to show 0 audio streams.
 - Stage 00 is VERIFIED COMPLETE and committed as `fb59dc6` (backend typed `/health` + `/v1` router + 5 tests; simulator build, `xcodebuild test`, and app launch on iPhone 17 sim).
 - Stage 01 progress: upstream Auto-AVSR inspection, real T4 inference, 25 fps normalization, warm-container reuse, FP16 inference, and beam-size comparison are recorded in `docs/INFERENCE_FEASIBILITY.md`.
 - Modal validation: authenticated as profile `raahil-32424`; image built and uploaded; official Auto-AVSR checkout and 1 GB official VSR checkpoint cached in `voiceback-model-cache`; T4/CUDA/MediaPipe initialized; audio-stripped video path reached face detection. The available public fixture had no detectable face, so no transcript was claimed.
@@ -19,8 +22,8 @@ Last updated: 2026-10-24
 | Stage | Status | Validation | Blockers | Last Commit |
 |---|---|---|---|---|
 | 00 Foundation | VERIFIED COMPLETE | Backend: 5 tests pass; live `/health` returns HTTP 200. Xcode: project parses, simulator build and `xcodebuild test` succeed, app installs and launches | No Stage 00 blockers; physical-device camera behavior remains future validation | pending commit |
-| 01 Visual-only lip-reading | FEASIBILITY DEMONSTRATED (gate: awaiting approval) | Best checkpoint `vsr_trlrs2lrs3vox2avsp_base.pth` + 25 fps fix → **0% WER exact-sentence** audio-free transcript on a consented clip (second clip 40%). Real reusable adapter; `audio_used=False` verified | Per-clip silent/spoken labels + more repeatable takes pending (not blocking the feasibility decision). Checkpoint change uncommitted | pending commit |
-| 02 iOS recording/VSR | NOT STARTED | None | Depends on Stage 01 adapter and physical iPhone | — |
+| 01 Visual-only lip-reading | VERIFIED COMPLETE | Best checkpoint `vsr_trlrs2lrs3vox2avsp_base.pth` + 25 fps fix → **0% WER exact-sentence** audio-free transcript on a consented clip (second clip 40%). Real reusable adapter; `audio_used=False` verified; feasibility decision POSITIVE | Per-clip silent/spoken labels + more takes are future refinement, not gate blockers | 121cbf7 |
+| 02 iOS recording/VSR | IMPLEMENTED — UNVERIFIED | Backend `POST /v1/transcriptions` (13 tests pass) proven end-to-end against deployed Modal with a real clip (`THIS IS THE GROUND TRUTH`, audio_used=false); iOS simulator build + `xcodebuild test` SUCCEEDED | Physical iPhone + Apple signing + LAN backend URL required to verify real recording/upload/display, no-mic prompt, and 0 audio streams | pending |
 | 03 Gemini interpretation | NOT STARTED | None | Backend key and evaluation set | — |
 | 04 Clarification/gestures | NOT STARTED | None | Depends on ambiguity data and physical device | — |
 | 05 Cartesia voice/TTS | NOT STARTED | None | Consent, provider access, secure storage | — |
