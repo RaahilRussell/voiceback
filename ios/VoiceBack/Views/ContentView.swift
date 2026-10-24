@@ -55,7 +55,11 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 Text(response.interpretation?.correctedText ?? response.text)
                     .font(.title3)
-                Text("Voice synthesis is intentionally not connected yet.")
+                Button("Speak approved sentence") {
+                    Task { await viewModel.speakApproved(response) }
+                }
+                .buttonStyle(.borderedProminent)
+                Text("Only the explicitly approved text is sent for synthesis.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

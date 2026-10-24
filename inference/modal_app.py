@@ -3,6 +3,7 @@
 import subprocess
 import urllib.request
 import ast
+import base64
 import json
 import os
 import re
@@ -367,6 +368,64 @@ def web():
         if interpretation is not None:
             result["interpretation"] = interpretation
         return result
+
+    @api.post("/v1/clarifications")
+    async def create_clarification(payload: dict[str, Any]) -> dict[str, Any]:
+        candidates = [str(item).strip() for item in payload.get("candidates", []) if str(item).strip()]
+        answer = str(payload.get("answer", "")).strip().lower()
+        if len(candidates) < 2:
+            raise HTTPException(status_code=422, detail="at least two candidates are required")
+        if answer in {"yes", "y", "1", "first", "one"}:
+            return {"selected_text": candidates[0], "needs_follow_up": False, "question": None}
+        if answer in {"no", "n", "2", "second", "two"} and len(candidates) == 2:
+            return {"selected_text": candidates[1], "needs_follow_up": False, "question": None}
+        return {
+            "selected_text": "",
+            "needs_follow_up": True,
+            "question": f"Did you mean {candidates[0]} or {candidates[1]}?",
+        }
+
+    @api.post("/v1/voices/enrollment")
+    async def enroll_voice(payload: dict[str, Any]) -> dict[str, Any]:
+        if payload.get("consent") is not True:
+            raise HTTPException(status_code=403, detail="voice enrollment requires explicit consent")
+        voice_id = payload.get("voice_id") or os.getenv("VOICEBACK_CARTESIA_VOICE_ID") or os.getenv("CARTESIA_VOICE_ID")
+        return {
+            "user_id": str(payload.get("user_id", "")),
+            "consented": True,
+            "voice_id": voice_id,
+            "ready": bool(voice_id and (os.getenv("VOICEBACK_CARTESIA_API_KEY") or os.getenv("CARTESIA_API_KEY"))),
+        }
+
+    @api.post("/v1/speech")
+    async def create_speech(payload: dict[str, Any]) -> dict[str, str]:
+        if payload.get("approved") is not True:
+            raise HTTPException(status_code=409, detail="explicit approval is required before speech")
+        text = str(payload.get("text", "")).strip()
+        api_key = os.getenv("VOICEBACK_CARTESIA_API_KEY") or os.getenv("CARTESIA_API_KEY")
+        voice_id = payload.get("voice_id") or os.getenv("VOICEBACK_CARTESIA_VOICE_ID") or os.getenv("CARTESIA_VOICE_ID")
+        if not text or not api_key or not voice_id:
+            raise HTTPException(status_code=503, detail="Cartesia API key and consented voice ID are required")
+        import httpx
+
+        body = {
+            "model_id": os.getenv("VOICEBACK_CARTESIA_MODEL") or os.getenv("CARTESIA_MODEL") or "sonic-2",
+            "transcript": text,
+            "voice": {"mode": "id", "id": voice_id},
+            "output_format": {"container": "mp3", "encoding": "mp3", "sample_rate": 44100},
+        }
+        headers = {
+            "X-API-Key": api_key,
+            "Cartesia-Version": os.getenv("VOICEBACK_CARTESIA_VERSION") or "2025-04-16",
+            "Content-Type": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post("https://api.cartesia.ai/tts/bytes", json=body, headers=headers)
+            response.raise_for_status()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="Cartesia speech provider failed") from exc
+        return {"audio_base64": base64.b64encode(response.content).decode("ascii"), "content_type": "audio/mpeg"}
 
     return api
 

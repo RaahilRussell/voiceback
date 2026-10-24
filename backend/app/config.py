@@ -22,6 +22,8 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("VOICEBACK_CARTESIA_VOICE_ID", "CARTESIA_VOICE_ID"),
     )
+    cartesia_model: str = Field(default="sonic-2", validation_alias=AliasChoices("VOICEBACK_CARTESIA_MODEL", "CARTESIA_MODEL"))
+    cartesia_version: str = Field(default="2025-04-16", validation_alias=AliasChoices("VOICEBACK_CARTESIA_VERSION", "CARTESIA_VERSION"))
     model_checkpoint_path: str | None = None
     model_device: str = "auto"
 

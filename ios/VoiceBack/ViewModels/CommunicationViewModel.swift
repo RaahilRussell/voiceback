@@ -47,6 +47,7 @@ final class CommunicationViewModel: ObservableObject {
     @Published private(set) var statusMessage = "Ready for silent speech"
 
     private let capture = CameraCaptureService()
+    private let voiceOutput = VoiceOutputService()
     private let backendURL: URL
 
     /// Public Modal HTTPS endpoint so a physical iPhone can reach the backend
@@ -92,6 +93,17 @@ final class CommunicationViewModel: ObservableObject {
         guard response.interpretation != nil else { return }
         state = .approved(response)
         statusMessage = "Approved. Speech output is ready once voice synthesis is connected."
+    }
+
+    func speakApproved(_ response: TranscriptionResponse) async {
+        guard let text = response.interpretation?.correctedText else { return }
+        statusMessage = "Generating approved speech…"
+        do {
+            try await voiceOutput.speak(text: text, baseURL: backendURL)
+            statusMessage = "Speaking approved sentence"
+        } catch {
+            statusMessage = error.localizedDescription
+        }
     }
 
     private func upload(_ fileURL: URL) async {

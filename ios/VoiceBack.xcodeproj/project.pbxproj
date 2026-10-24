@@ -13,6 +13,7 @@
 		A10000000000000000000005 /* CameraCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* CameraCaptureService.swift */; };
 		A10000000000000000000006 /* Transcription.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* Transcription.swift */; };
 		A10000000000000000000007 /* ApprovalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* ApprovalCard.swift */; };
+		A10000000000000000000009 /* VoiceOutputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* VoiceOutputService.swift */; };
 		A10000000000000000000008 /* VoiceBackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* VoiceBackTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -32,6 +33,7 @@
 		B10000000000000000000008 /* VoiceBackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceBackTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000010 /* VoiceBackTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoiceBackTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000011 /* VoiceOutputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/VoiceOutputService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,7 +43,7 @@
 
 /* Begin PBXGroup section */
 		D10000000000000000000000 = {isa = PBXGroup; children = (D10000000000000000000001, D10000000000000000000002, D10000000000000000000003); sourceTree = "<group>"; };
-		D10000000000000000000001 /* VoiceBack */ = {isa = PBXGroup; children = (B10000000000000000000001, B10000000000000000000002, B10000000000000000000003, B10000000000000000000004, B10000000000000000000005, B10000000000000000000006, B10000000000000000000007, B10000000000000000000009); path = VoiceBack; sourceTree = "<group>"; };
+		D10000000000000000000001 /* VoiceBack */ = {isa = PBXGroup; children = (B10000000000000000000001, B10000000000000000000002, B10000000000000000000003, B10000000000000000000004, B10000000000000000000005, B10000000000000000000006, B10000000000000000000007, B10000000000000000000009, B10000000000000000000011); path = VoiceBack; sourceTree = "<group>"; };
 		D10000000000000000000002 /* VoiceBackTests */ = {isa = PBXGroup; children = (B10000000000000000000008); path = VoiceBackTests; sourceTree = "<group>"; };
 		D10000000000000000000003 /* Products */ = {isa = PBXGroup; children = (B10000000000000000000000, B10000000000000000000010); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
@@ -64,15 +66,15 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		C10000000000000000000003 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A10000000000000000000007); runOnlyForDeploymentPostprocessing = 0; };
+		C10000000000000000000003 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A10000000000000000000007, A10000000000000000000009); runOnlyForDeploymentPostprocessing = 0; };
 		C10000000000000000000005 /* Test Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000008); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		F10000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGNING_ALLOWED = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEFINES_MODULE = YES; DEVELOPMENT_TEAM = 28N3GP9MWX; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = VoiceBack/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.raahilrussell.voiceback; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		F10000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGNING_ALLOWED = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEFINES_MODULE = YES; DEVELOPMENT_TEAM = 28N3GP9MWX; ENABLE_TESTABILITY = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = VoiceBack/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.raahilrussell.voiceback; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
 		F10000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGNING_ALLOWED = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEFINES_MODULE = YES; DEVELOPMENT_TEAM = 28N3GP9MWX; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = VoiceBack/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.raahilrussell.voiceback; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
-		F10000000000000000000005 /* Test Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.raahilrussell.voiceback.tests; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VoiceBack.app/VoiceBack"; }; name = Debug; };
-		F10000000000000000000006 /* Test Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.raahilrussell.voiceback.tests; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VoiceBack.app/VoiceBack"; }; name = Release; };
+		F10000000000000000000005 /* Test Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGNING_ALLOWED = NO; ENABLE_TESTABILITY = YES; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.raahilrussell.voiceback.tests; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VoiceBack.app/VoiceBack"; }; name = Debug; };
+		F10000000000000000000006 /* Test Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGNING_ALLOWED = NO; ENABLE_TESTABILITY = YES; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.raahilrussell.voiceback.tests; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VoiceBack.app/VoiceBack"; }; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */

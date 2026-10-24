@@ -7,9 +7,13 @@ Planned endpoints:
 - `POST /v1/transcriptions` — visual-only video upload and candidate transcripts
 - `POST /v1/clarifications` — ambiguity resolution question and answer
 - `POST /v1/voices/enrollment` — consent-based enrollment session
-- `POST /v1/speech` — approved text to generated audio
+- `POST /v1/speech` — approved text to generated audio; rejects `approved=false`
 
 All production endpoints must make approval state explicit and must reject microphone audio inputs.
+
+The speech endpoint returns `{audio_base64, content_type}` so the iOS client can
+decode and play the provider output locally. Voice enrollment records explicit
+consent and a provider voice ID; it never infers consent from a video upload.
 
 ## Gemini interpretation contract
 

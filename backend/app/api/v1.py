@@ -3,14 +3,25 @@ import logging
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.config import settings
+from app.schemas.actions import (
+    ClarificationRequest,
+    ClarificationResponse,
+    SpeechRequest,
+    SpeechResponse,
+    VoiceEnrollmentRequest,
+    VoiceEnrollmentResponse,
+)
 from app.schemas.health import HealthResponse
 from app.schemas.transcription import TranscriptionResponse
+from app.services.cartesia_client import CartesiaClient
+from app.services.clarification_engine import ClarificationEngine
 from app.services.gemini_client import GeminiClient, get_gemini_client
 from app.services.visual_speech_model import (
     VisualSpeechError,
     VisualSpeechModel,
     get_visual_speech_model,
 )
+from app.services.voice_manager import VoiceManager
 
 API_VERSION = "0.1.0"
 
@@ -18,6 +29,9 @@ API_VERSION = "0.1.0"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 logger = logging.getLogger("voiceback.transcriptions")
+clarification_engine = ClarificationEngine()
+voice_manager = VoiceManager()
+cartesia = CartesiaClient()
 
 router = APIRouter(prefix="/v1", tags=["v1"])
 
@@ -92,3 +106,47 @@ async def create_transcription(
             raise HTTPException(status_code=502, detail="interpretation backend failed") from exc
 
     return TranscriptionResponse(**result, interpretation=interpretation)
+
+
+@router.post("/clarifications", response_model=ClarificationResponse)
+def resolve_clarification(request: ClarificationRequest) -> ClarificationResponse:
+    selected, needs_follow_up = clarification_engine.resolve(request.candidates, request.answer)
+    if needs_follow_up:
+        return ClarificationResponse(
+            selected_text="",
+            needs_follow_up=True,
+            question=clarification_engine.question_for(request.candidates),
+        )
+    return ClarificationResponse(selected_text=selected or "", needs_follow_up=False)
+
+
+@router.post("/voices/enrollment", response_model=VoiceEnrollmentResponse)
+def enroll_voice(request: VoiceEnrollmentRequest) -> VoiceEnrollmentResponse:
+    try:
+        voice_manager.enroll(request.user_id, request.consent, request.voice_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    selected = request.voice_id or settings.cartesia_voice_id
+    return VoiceEnrollmentResponse(
+        user_id=request.user_id,
+        consented=True,
+        voice_id=selected,
+        ready=bool(selected and settings.cartesia_api_key),
+    )
+
+
+@router.post("/speech", response_model=SpeechResponse)
+async def synthesize_speech(request: SpeechRequest) -> SpeechResponse:
+    if not request.approved:
+        raise HTTPException(status_code=409, detail="explicit approval is required before speech")
+    try:
+        voice_id = voice_manager.voice_id(request.user_id, request.voice_id or settings.cartesia_voice_id)
+        audio = await cartesia.synthesize_base64(request.text, voice_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Cartesia synthesis failed")
+        raise HTTPException(status_code=502, detail="speech provider failed") from exc
+    return SpeechResponse(audio_base64=audio)
