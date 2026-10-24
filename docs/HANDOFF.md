@@ -18,7 +18,7 @@ explicit approval before Cartesia speech output.
   `https://raahil-32424--voiceback-inference-web.us-east.modal.run`.
 - The endpoint was verified with a real clip and returned
   `THIS IS THE GROUND TRUTH` with `audio_used=false`.
-- Modal is configured with one warm T4 (`min_containers=1`) and a 15-minute
+- Modal is configured with one warm L4 (`min_containers=1`) and a 15-minute
   scale-down window. This consumes GPU credits while deployed; stop the app
   when testing is finished if credit usage matters.
 - The endpoint now has a deterministic fast path: a single candidate without a
@@ -26,8 +26,9 @@ explicit approval before Cartesia speech output.
   invoke Gemini. A current ground-truth request returned HTTP 200 with the raw
   result and fast-path interpretation. The measured request was still 24.65 s
   because Modal had to wait for T4 capacity; the actual model timing was 7.09 s.
-  Reaching a two-second target requires streaming windows or a faster/on-device
-  model, and depends on GPU capacity.
+  The warm L4 benchmark reduced model time to 2.80 s and total request time to
+  7.08 s. Reaching a two-second total target still requires streaming windows,
+  smaller uploads, or a faster/on-device model, and depends on GPU capacity.
 - Gemini is wired after raw Auto-AVSR output as one typed
   correction/ranking/clarification call. The live key was validated with
   `gemini-3.1-flash-lite`: structured output returned in 4.73 seconds and

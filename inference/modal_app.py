@@ -99,7 +99,7 @@ def _run_model(video_only: Path, root: Path) -> dict[str, object]:
 
 @app.function(
     image=image,
-    gpu="T4",
+    gpu="L4",
     timeout=1800,
     min_containers=1,
     scaledown_window=900,
