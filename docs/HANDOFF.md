@@ -23,10 +23,13 @@ explicit approval before Cartesia speech output.
 - Current warm whole-sentence latency is still roughly 7–8 seconds end-to-end;
   the model itself is about 3 seconds on the short supplied clip. Reaching a
   two-second target requires streaming windows or a faster/on-device model.
-- Gemini is scaffolded as one typed correction/ranking/clarification call but is
-  not yet wired into the phone transcription endpoint. Cartesia is also not
-  wired into the phone flow.
-- Next safe step: wire Gemini after raw Auto-AVSR output while preserving the
-  original transcript and explicit approval gate; then add Cartesia only after
-  the approval flow is validated.
+- Gemini is wired after raw Auto-AVSR output as one typed
+  correction/ranking/clarification call. The live key was validated with
+  `gemini-3.1-flash-lite`: structured output returned in 4.73 seconds and
+  selected the correct supplied candidate at 0.95 confidence. The client uses
+  temperature 0, a fixed seed, one candidate, cached client state, and a 12
+  second request deadline. Cartesia is not wired into the phone flow.
+- Gemini Pro models are not usable with the current key's free-tier quota;
+  `gemini-3.1-pro-preview` returned quota 0. Keep the model configurable and
+  use Flash Lite for the latency-sensitive demo path until paid quota is added.
 

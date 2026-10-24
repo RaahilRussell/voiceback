@@ -19,7 +19,7 @@ def get_gemini_client() -> GeminiClient:
 
 
 class GeminiClient:
-    def __init__(self, api_key: str | None, model: str = "gemini-3.8-flash") -> None:
+    def __init__(self, api_key: str | None, model: str = "gemini-3.1-flash-lite") -> None:
         self.api_key = api_key
         self.model = model
         self._client = None
@@ -56,7 +56,7 @@ class GeminiClient:
             self._client = genai.Client(
                 api_key=self.api_key,
                 http_options=types.HttpOptions(
-                    timeout=8_000,
+                    timeout=12_000,
                     retry_options=types.HttpRetryOptions(attempts=1),
                 ),
             )

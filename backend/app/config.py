@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("VOICEBACK_GEMINI_API_KEY", "GEMINI_API_KEY"),
     )
     gemini_model: str = Field(
-        default="gemini-3.8-flash",
+        default="gemini-3.1-flash-lite",
         validation_alias=AliasChoices("VOICEBACK_GEMINI_MODEL", "GEMINI_MODEL"),
     )
     cartesia_api_key: str | None = Field(

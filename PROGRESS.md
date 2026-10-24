@@ -26,7 +26,7 @@ Last updated: 2026-10-24
 | 00 Foundation | VERIFIED COMPLETE | Backend: 5 tests pass; live `/health` returns HTTP 200. Xcode: project parses, simulator build and `xcodebuild test` succeed, app installs and launches | No Stage 00 blockers; physical-device camera behavior remains future validation | pending commit |
 | 01 Visual-only lip-reading | VERIFIED COMPLETE | Best checkpoint `vsr_trlrs2lrs3vox2avsp_base.pth` + 25 fps fix → **0% WER exact-sentence** audio-free transcript on a consented clip (second clip 40%). Real reusable adapter; `audio_used=False` verified; feasibility decision POSITIVE | Per-clip silent/spoken labels + more takes are future refinement, not gate blockers | 121cbf7 |
 | 02 iOS recording/VSR | IMPLEMENTED — UNVERIFIED | Backend `POST /v1/transcriptions` (13 tests pass) proven end-to-end against deployed Modal with a real clip (`THIS IS THE GROUND TRUTH`, audio_used=false); iOS simulator build + `xcodebuild test` SUCCEEDED | Physical iPhone + Apple signing + LAN backend URL required to verify real recording/upload/display, no-mic prompt, and 0 audio streams | pending |
-| 03 Gemini interpretation | NOT STARTED | None | Backend key and evaluation set | — |
+| 03 Gemini interpretation | BACKEND VALIDATED | Live structured request selected the correct supplied candidate in 4.73 s; 14 backend tests pass | Full phone-path evaluation on multiple ambiguous clips; Pro requires paid quota |  pending |
 | 04 Clarification/gestures | NOT STARTED | None | Depends on ambiguity data and physical device | — |
 | 05 Cartesia voice/TTS | NOT STARTED | None | Consent, provider access, secure storage | — |
 | 06 End-to-end | NOT STARTED | None | Depends on Stages 00–05 | — |
