@@ -1,12 +1,12 @@
 """Modal GPU entry point for VoiceBack's official Auto-AVSR adapter."""
 
-import subprocess
-import urllib.request
 import ast
 import base64
 import json
 import os
 import re
+import subprocess
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -207,15 +207,9 @@ def _deterministic_interpretation(result: dict[str, object]) -> dict[str, object
         "confidence": 0.90,
         "needs_clarification": False,
         "clarification_question": None,
-        "word_checks": [
-            {
-                "observed_word": word,
-                "alternatives": [word],
-                "confidence": 0.90,
-                "needs_clarification": False,
-            }
-            for word in re.findall(r"[A-Za-z]+", text.upper())
-        ],
+        # No invented per-word probabilities on the fast path. Word checks are
+        # reserved for actual candidate collisions reviewed by Gemini.
+        "word_checks": [],
     }
 
 
@@ -233,12 +227,14 @@ def _interpret_with_gemini(result: dict[str, object]) -> dict[str, object] | Non
     if not candidates:
         candidates = [str(result.get("text") or "")]
     prompt = (
-        "You are the VoiceBack interpretation layer. Return exactly one JSON decision. "
+        "You are a conservative visual-speech verifier. Return exactly one JSON decision. "
         "Choose only among the supplied candidate sentences; never invent, rewrite, or "
-        "combine words. Inspect every word for visual confusions such as b/p, m/n, f/v, "
-        "and voiced/unvoiced pairs. Put plausible ambiguities in word_checks with alternatives "
-        "and a per-word confidence. Any word below 0.80 must require clarification. Ask one "
-        "short yes/no question when clarification is needed. Do not approve speech.\n\n"
+        "combine words. Do not treat confidence as a calibrated probability. Only add a "
+        "word_check when the word is present in the supplied text and the alternative is a "
+        "plausible lip-motion collision such as PRO/BRO, B/P, M/N, or F/V. Never create "
+        "checks for ordinary unambiguous words. Set needs_clarification true for genuine "
+        "candidate disagreement or an uncertain collision. Ask one short yes/no question "
+        "when clarification is needed. Do not authorize speech.\n\n"
         f"Original visual transcription: {result.get('text', '')}\n"
         f"Candidates (JSON): {json.dumps(candidates, ensure_ascii=False)}"
     )
@@ -312,19 +308,73 @@ def _interpret_with_gemini(result: dict[str, object]) -> dict[str, object] | Non
             interpretation = ast.literal_eval(raw)
         if not isinstance(interpretation, dict):
             raise ValueError("Gemini returned a non-object interpretation")
+    return _sanitize_interpretation(interpretation, str(result.get("text") or ""), candidates)
+
+
+_SAFE_VISUAL_CONFUSION_GROUPS = (
+    frozenset({"pro", "bro"}), frozenset({"pat", "bat"}),
+    frozenset({"map", "nap"}), frozenset({"fan", "van"}),
+    frozenset({"fine", "vine"}), frozenset({"two", "do"}),
+    frozenset({"to", "do"}), frozenset({"tin", "din"}),
+    frozenset({"ten", "den"}), frozenset({"meet", "neat"}),
+)
+
+
+def _sanitize_interpretation(
+    interpretation: dict[str, object], original_text: str, supplied_candidates: list[str]
+) -> dict[str, object]:
+    """Constrain Gemini to the VSR evidence before it reaches the approval UI."""
+    supplied = list(dict.fromkeys(item.strip() for item in supplied_candidates if item.strip()))[:5]
+    if not supplied:
+        supplied = [original_text.strip()]
+    normalized = {item.casefold(): item for item in supplied}
+    proposed = str(interpretation.get("corrected_text") or "").strip()
+    selected = normalized.get(proposed.casefold(), supplied[0])
+    invalid_proposal = proposed.casefold() not in normalized
+    source_words = {word.casefold() for word in re.findall(r"[A-Za-z']+", original_text)}
+    safe_checks: list[dict[str, object]] = []
+    for raw_check in interpretation.get("word_checks", []) or []:
+        if not isinstance(raw_check, dict):
+            continue
+        observed = str(raw_check.get("observed_word") or "").strip()
+        alternatives = [str(item).strip() for item in raw_check.get("alternatives", []) or [] if str(item).strip()]
+        plausible = any(
+            frozenset({observed.casefold(), alternative.casefold()}) <= group
+            for group in _SAFE_VISUAL_CONFUSION_GROUPS
+            for alternative in alternatives
+        )
+        if not observed or observed.casefold() not in source_words or not plausible:
+            continue
+        safe_checks.append({
+            "observed_word": observed,
+            "alternatives": alternatives[:4],
+            "confidence": max(0.0, min(1.0, float(raw_check.get("confidence", 0.0)))),
+            "needs_clarification": bool(raw_check.get("needs_clarification")),
+        })
     uncertain = [
-        check for check in interpretation.get("word_checks", [])
-        if float(check.get("confidence", 0.0)) < 0.80 or check.get("needs_clarification")
+        check for check in safe_checks
+        if check["needs_clarification"] or float(check["confidence"]) < 0.80
     ]
-    if uncertain:
-        interpretation["needs_clarification"] = True
-        if not interpretation.get("clarification_question"):
+    needs_clarification = bool(interpretation.get("needs_clarification")) or invalid_proposal or bool(uncertain)
+    question = interpretation.get("clarification_question")
+    if needs_clarification and not question:
+        if uncertain:
             check = uncertain[0]
-            alternative = (check.get("alternatives") or ["the alternative"])[0]
-            interpretation["clarification_question"] = (
-                f"Did you mean {check.get('observed_word')} or {alternative}?"
-            )
-    return interpretation
+            question = f"Did you mean {check['observed_word']} or {check['alternatives'][0]}?"
+        elif len(supplied) > 1:
+            question = f"Did you mean {supplied[0]} or {supplied[1]}?"
+    if not needs_clarification:
+        question = None
+    return {
+        "original_text": original_text,
+        "corrected_text": selected,
+        "candidates": supplied,
+        "selected_index": supplied.index(selected),
+        "confidence": max(0.0, min(1.0, float(interpretation.get("confidence", 0.0)))),
+        "needs_clarification": needs_clarification,
+        "clarification_question": question,
+        "word_checks": safe_checks,
+    }
 
 
 @app.function(image=web_image, secrets=[modal.Secret.from_name("voiceback-secrets")])

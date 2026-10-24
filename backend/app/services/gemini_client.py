@@ -4,9 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from functools import lru_cache
 
 from app.schemas.interpretation import WORD_CONFIDENCE_THRESHOLD, InterpretationResult
+
+_VISUAL_CONFUSION_GROUPS = (
+    frozenset({"pro", "bro"}), frozenset({"pat", "bat"}),
+    frozenset({"map", "nap"}), frozenset({"fan", "van"}),
+    frozenset({"fine", "vine"}), frozenset({"two", "do"}),
+    frozenset({"to", "do"}), frozenset({"tin", "din"}),
+    frozenset({"ten", "den"}), frozenset({"meet", "neat"}),
+)
 
 
 @lru_cache(maxsize=1)
@@ -61,14 +70,13 @@ class GeminiClient:
                 ),
             )
         prompt = (
-            "You are the VoiceBack interpretation layer. Return exactly one JSON decision. "
+            "You are a conservative visual-speech verifier. Return exactly one JSON decision. "
             "Choose only among the supplied candidate sentences; never invent, rewrite, or "
-            "combine words. Use context only to rank candidates. Set needs_clarification true "
-            "when the evidence is ambiguous or confidence is below 0.80. Also inspect every "
-            "word for plausible visual confusions such as b/p, m/n, f/v, and voiced/unvoiced "
-            "pairs. Put those in word_checks with alternatives and a per-word confidence; "
-            "a word below 0.80 must set needs_clarification true. Ask one short yes/no question "
-            "when clarification is needed. Do not treat this response as approval to speak.\n\n"
+            "combine words. Do not treat confidence as a calibrated probability. Only add a "
+            "word_check when the word is present in the supplied text and the alternative is "
+            "a plausible lip-motion collision such as PRO/BRO, B/P, M/N, or F/V. Never create "
+            "checks for ordinary unambiguous words. Set needs_clarification true for genuine "
+            "candidate disagreement or an uncertain collision. Do not authorize speech.\n\n"
             f"Original visual transcription: {original_text}\n"
             f"Candidates (JSON): {json.dumps(candidates, ensure_ascii=False)}\n"
             f"Conversation context: {context or '(none)'}"
@@ -89,8 +97,54 @@ class GeminiClient:
         if getattr(response, "parsed", None) is not None:
             result = response.parsed
             if isinstance(result, InterpretationResult):
-                return self._apply_word_safety_gate(result)
-        return self._apply_word_safety_gate(InterpretationResult.model_validate_json(response.text))
+                return self._sanitize_and_gate(result, original_text, candidates)
+        return self._sanitize_and_gate(
+            InterpretationResult.model_validate_json(response.text), original_text, candidates
+        )
+
+    @classmethod
+    def _sanitize_and_gate(
+        cls, result: InterpretationResult, original_text: str, supplied_candidates: list[str]
+    ) -> InterpretationResult:
+        """Treat Gemini as an untrusted proposal and constrain its claims."""
+        supplied = list(dict.fromkeys(item.strip() for item in supplied_candidates if item.strip()))
+        normalized = {item.casefold(): item for item in supplied}
+        selected = normalized.get(result.corrected_text.strip().casefold())
+        if selected is None:
+            selected = supplied[0]
+        checks = []
+        source_words = {word.casefold() for word in re.findall(r"[A-Za-z']+", original_text)}
+        for check in result.word_checks:
+            observed = check.observed_word.strip()
+            alternatives = [item.strip() for item in check.alternatives if item.strip()]
+            plausible = any(
+                frozenset({observed.casefold(), alternative.casefold()}) <= group
+                for group in _VISUAL_CONFUSION_GROUPS
+                for alternative in alternatives
+            )
+            if plausible and observed.casefold() in source_words:
+                checks.append(check.model_copy(update={"alternatives": alternatives[:4]}))
+        sanitized = InterpretationResult.model_validate(
+            {
+                **result.model_dump(),
+                "original_text": original_text,
+                "candidates": supplied,
+                "selected_index": supplied.index(selected),
+                "corrected_text": selected,
+                "word_checks": checks,
+            }
+        )
+        if selected != result.corrected_text:
+            question = result.clarification_question
+            if not question and len(supplied) > 1:
+                question = f"Did you mean {supplied[0]} or {supplied[1]}?"
+            sanitized = sanitized.model_copy(
+                update={
+                    "needs_clarification": True,
+                    "clarification_question": question,
+                }
+            )
+        return cls._apply_word_safety_gate(sanitized)
 
     @staticmethod
     def _apply_word_safety_gate(result: InterpretationResult) -> InterpretationResult:

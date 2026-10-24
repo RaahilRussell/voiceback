@@ -17,7 +17,7 @@ struct ApprovalCard: View {
                     .foregroundStyle(.secondary)
                 Text(interpretation.correctedText).font(.headline)
                 let confidenceText = String(format: "%.0f%%", interpretation.confidence * 100)
-                Text("Gemini confidence: \(confidenceText)")
+                Text("Model review score (not calibrated): \(confidenceText)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 ForEach(interpretation.wordChecks, id: \.observedWord) { check in
