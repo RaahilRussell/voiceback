@@ -13,7 +13,7 @@ from model_adapter import ModelAdapter
 
 APP_NAME = "voiceback-inference"
 UPSTREAM_REPO = "https://github.com/mpc001/auto_avsr.git"
-DEMO_CHECKPOINT_URL = "gdrive://12PNM5szUsk_CuaV1yB9dL_YWvSM1zvAd"
+DEMO_CHECKPOINT_URL = "gdrive://1r1kx7l9sWnDOCnaFHIGvOtzuhFyFA88_"
 DEMO_VIDEO_URL = "https://raw.githubusercontent.com/datascientistabhishek/Lip-Reading-AI-model/main/%F0%9F%91%84%20AI%20Lip%20Reader.mp4"
 
 model_volume = modal.Volume.from_name("voiceback-model-cache", create_if_missing=True)
@@ -83,7 +83,7 @@ def _prepare_video(root: Path, source: Path, video_only: Path) -> None:
 
 def _run_model(video_only: Path, root: Path) -> dict[str, object]:
     global _ADAPTER
-    checkpoint = root / "vsr_trlrs3_base.pth"
+    checkpoint = root / "vsr_trlrs2lrs3vox2avsp_base.pth"
     _download_once(DEMO_CHECKPOINT_URL, checkpoint)
     if _ADAPTER is None:
         _ADAPTER = ModelAdapter(checkpoint_path=str(checkpoint), device="cuda", beam_size=10)

@@ -4,7 +4,8 @@ Last updated: 2026-10-24
 
 ## Current state
 
-- Current active stage: **STAGE 01 — Get real silent lip-reading working** (IN PROGRESS; real labeled clips now run, accuracy gate remains open).
+- Current active stage: **STAGE 01 — Get real silent lip-reading working** (FEASIBILITY DEMONSTRATED; stopped at gate for approval before Stage 02).
+- Breakthrough 2026-10-24: switching to the best zoo checkpoint `vsr_trlrs2lrs3vox2avsp_base.pth` (+ the 25 fps fix) produced an exact-sentence, **0% WER** audio-free transcript on a consented clip (`IMG_5966.MOV` → "THIS IS THE GROUND TRUTH"); second clip `IMG_5967.MOV` 40% WER (`ground truth`→`crown tooth`, a look-alike confusion). Details in `docs/INFERENCE_FEASIBILITY.md` §2c.
 - Stage 00 is VERIFIED COMPLETE and committed as `fb59dc6` (backend typed `/health` + `/v1` router + 5 tests; simulator build, `xcodebuild test`, and app launch on iPhone 17 sim).
 - Stage 01 progress: upstream Auto-AVSR inspection, real T4 inference, 25 fps normalization, warm-container reuse, FP16 inference, and beam-size comparison are recorded in `docs/INFERENCE_FEASIBILITY.md`.
 - Modal validation: authenticated as profile `raahil-32424`; image built and uploaded; official Auto-AVSR checkout and 1 GB official VSR checkpoint cached in `voiceback-model-cache`; T4/CUDA/MediaPipe initialized; audio-stripped video path reached face detection. The available public fixture had no detectable face, so no transcript was claimed.
@@ -18,7 +19,7 @@ Last updated: 2026-10-24
 | Stage | Status | Validation | Blockers | Last Commit |
 |---|---|---|---|---|
 | 00 Foundation | VERIFIED COMPLETE | Backend: 5 tests pass; live `/health` returns HTTP 200. Xcode: project parses, simulator build and `xcodebuild test` succeed, app installs and launches | No Stage 00 blockers; physical-device camera behavior remains future validation | pending commit |
-| 01 Visual-only lip-reading | IN PROGRESS | Two consented clips produced genuine audio-free Auto-AVSR text on T4 after 25 fps normalization; warm adapter and beam-size comparison validated | Accuracy is below the speech-output gate; needs alignment/cropping experiments and repeatable labeled takes | pending |
+| 01 Visual-only lip-reading | FEASIBILITY DEMONSTRATED (gate: awaiting approval) | Best checkpoint `vsr_trlrs2lrs3vox2avsp_base.pth` + 25 fps fix → **0% WER exact-sentence** audio-free transcript on a consented clip (second clip 40%). Real reusable adapter; `audio_used=False` verified | Per-clip silent/spoken labels + more repeatable takes pending (not blocking the feasibility decision). Checkpoint change uncommitted | pending commit |
 | 02 iOS recording/VSR | NOT STARTED | None | Depends on Stage 01 adapter and physical iPhone | — |
 | 03 Gemini interpretation | NOT STARTED | None | Backend key and evaluation set | — |
 | 04 Clarification/gestures | NOT STARTED | None | Depends on ambiguity data and physical device | — |

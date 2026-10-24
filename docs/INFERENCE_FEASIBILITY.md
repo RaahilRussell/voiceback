@@ -1,6 +1,6 @@
 # Inference feasibility (Stage 01)
 
-Status: **IN PROGRESS — Modal pipeline validated to face detection; blocked on a valid labeled fixture.**
+Status: **FEASIBILITY DEMONSTRATED — real audio-free visual-only inference reached 0% WER (exact sentence) on a consented clip with the best zoo checkpoint. Pending: per-clip silent/spoken labels and user sign-off at the gate.**
 Last updated: 2026-10-24
 
 This document records the Stage 01 feasibility investigation for visual-only
@@ -123,6 +123,42 @@ mismatch was a genuine preprocessing defect (now fixed). Output is coherent
 English. Accuracy still cannot be scored until ground-truth sentences and the
 silent/spoken label for each clip are provided; both outputs happen to contain
 "TURN AROUND", which must be checked against what was actually mouthed/spoken.
+
+## 2c. Best-checkpoint result — feasibility demonstrated (2026-10-24)
+
+The initial runs used `vsr_trlrs3_base.pth`. Switching to the model zoo's best
+visual-only checkpoint, **`vsr_trlrs2lrs3vox2avsp_base.pth`** (Google Drive id
+`1r1kx7l9sWnDOCnaFHIGvOtzuhFyFA88_`, LRS2+LRS3+VoxCeleb2+AVSpeech, ~20% WER on
+LRS3), with the 25 fps preprocessing fix, produced:
+
+Ground truth (both clips): **"this is the ground truth"** (5 words).
+
+| Clip | Frames | Inference (s) | Raw output | WER | Exact |
+|---|---|---|---|---|---|
+| `IMG_5966.MOV` | 123 | 7.234 | `THIS IS THE GROUND TRUTH` | **0%** | ✅ |
+| `IMG_5967.MOV` | 68 | 2.715 | `THIS IS THE CROWN TOOTH` | 40% | ❌ |
+
+WER computed by word-level Levenshtein against the known sentence (audio stripped,
+`audio_used=False`, `cuda:0`). The 40% errors are `ground→crown` and
+`truth→tooth` — visually/phonetically similar words, the expected failure mode of
+lip-reading that the downstream Gemini + clarification stages exist to resolve.
+
+**Feasibility decision: POSITIVE.** A real pretrained visual-only model produces
+accurate text from audio-free front-camera video, reaching an exact-sentence
+match on a consented clip. This clears the Stage 01 purpose (prove or disprove
+useful visual-only transcription) and the gate's requirement of a real adapter
+contract plus an explicit feasibility decision.
+
+**Checkpoint provenance (new default):** `vsr_trlrs2lrs3vox2avsp_base.pth`,
+cached in the Git-ignored Modal volume `voiceback-model-cache`; `modal_app.py`
+`DEMO_CHECKPOINT_URL` updated accordingly.
+
+**Open items (not blockers to the feasibility decision):**
+- Confirm the silent/spoken condition of each clip so the "both conditions"
+  comparison is explicitly labeled; capture a few more repeatable takes per
+  condition to report an averaged WER rather than two single clips.
+- `IMG_5967` lower accuracy may reflect its shorter length (68 frames) and/or
+  the genuine silent-mouthing domain; more takes will separate these.
 
 ## 3. This machine's environment (checked 2026-10-24)
 
