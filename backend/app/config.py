@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash"
     cartesia_api_key: str | None = None
     cartesia_voice_id: str | None = None
     model_checkpoint_path: str | None = None

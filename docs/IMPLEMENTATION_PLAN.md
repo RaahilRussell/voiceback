@@ -29,12 +29,13 @@
 8. Implement upload/session API contracts and FFmpeg normalization.
 9. Connect Auto-AVSR through `inference/model_adapter.py` on a configurable GPU,
    preserving audio-free inference, warm model reuse, and explicit timing.
-10. Preserve the original Auto-AVSR transcription and alternatives. Pass them,
-    along with conversation context and gesture/quality metadata, to Gemini for
-    correction proposals—not silent replacement.
-11. Add a clarification state machine that asks a short yes/no question when
-    confidence or candidate agreement is low. Require explicit user approval
-    before any corrected sentence is spoken.
+10. Preserve the original Auto-AVSR transcription and alternatives. Send them,
+    along with conversation context and gesture/quality metadata, to one Gemini
+    structured-output call that performs correction, candidate ranking,
+    confidence scoring, and clarification selection together.
+11. Add a clarification state machine around Gemini's typed result. Ask a short
+    yes/no question when confidence or candidate agreement is low. Require
+    explicit user approval before any corrected sentence is spoken.
 
 ## Stage 03 — Voice output and privacy
 

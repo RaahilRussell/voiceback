@@ -198,3 +198,29 @@ automatically. The next accuracy experiments should use tighter face
 alignment/cropping validation, multiple labeled takes, and explicit confidence
 gating; Gemini correction must remain downstream of the original transcription
 and approval UI rather than silently replacing it.
+
+## 7. Latency budget and reduction plan
+
+The current warm-path estimate from sentence end to first spoken audio is
+approximately **4–12 seconds**, excluding time the user spends answering a
+clarification question. This is an estimate, not a completed end-to-end
+benchmark:
+
+| Component | Current expectation |
+|---|---:|
+| End-of-sentence capture buffer | 0.5–1.0 s |
+| Upload and video normalization | 0.2–1.0 s |
+| Warm Auto-AVSR path | 2.5–7.2 s measured on supplied clips |
+| One Gemini structured decision | 0.3–1.5 s target to measure |
+| Cartesia request and audio start | 0.3–1.5 s target to measure |
+| Playback buffer | 0.1–0.3 s |
+
+Cold Modal startup/model loading can be substantially slower, so production
+latency should be measured with a warm container and a separate cold-start
+metric. The highest-impact reductions are: stream short rolling video windows
+instead of uploading a whole sentence after capture; keep the model warm; use a
+short fixed-size mouth crop; move landmark alignment onto the phone; reduce
+frames only after accuracy testing; use a smaller or quantized VSR checkpoint
+only if its WER remains acceptable; and stream Cartesia audio as soon as the
+approved text is available. Gemini should remain one structured call rather than
+adding a separate Jev call.
