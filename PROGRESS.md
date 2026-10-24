@@ -4,11 +4,12 @@ Last updated: 2026-10-24
 
 ## Current state
 
-- Current active stage: **STAGE 00 — Repository, Xcode and backend foundation**
-- Backend foundation is VERIFIED (typed `/health`, versioned `/v1` router, 5 passing tests, live server returning typed JSON).
-- Native foundation is VERIFIED: duplicate `Info.plist` build action removed, simulator build succeeds, app installs and launches on an iPhone 17 simulator.
-- Next action: stop at the Stage 00 gate and request approval before beginning Stage 01.
-- Verification commit: pending commit of this fix (recorded immediately after validation).
+- Current active stage: **STAGE 01 — Get real silent lip-reading working** (IN PROGRESS → BLOCKED on user-provided inputs; see below).
+- Stage 00 is VERIFIED COMPLETE and committed as `fb59dc6` (backend typed `/health` + `/v1` router + 5 tests; simulator build, `xcodebuild test`, and app launch on iPhone 17 sim).
+- Stage 01 progress: upstream Auto-AVSR inspection complete and recorded in `docs/INFERENCE_FEASIBILITY.md`; `inference/README.md` updated with verified facts. Real inference is blocked pending inputs only the user can provide.
+- Modal prerequisite: authenticated as profile `raahil-32424`; the `voiceback-inference` app definition was accepted by Modal and an ephemeral validation app was created. No GPU inference has been invoked.
+- Next action: user provides the three Stage 01 inputs (labeled samples incl. genuine silent mouthing + consent; compute target; install/download authorization); then read `preparation/` for exact preprocessing, run upstream inference, verify the audio-free path, wrap `ModelAdapter`, and measure WER on both conditions.
+- Stage 01 environment: macOS (Darwin 25.6.0), Apple Silicon arm64; no NVIDIA GPU; PyTorch, ffmpeg, and ground-truth sample videos not present; network available. Backend runs in the Python 3.14.7 `.venv`.
 - Environment: macOS (Darwin 25.6.0); full Xcode **26.6 (Build 17F113)** installed at `/Users/raahil/Downloads/Xcode.app` with iOS **26.5** simulator runtime available; `xcode-select -p` still points at `/Library/Developer/CommandLineTools`, so builds are run with `DEVELOPER_DIR` pointed at the full Xcode. Python **3.14.7** in an isolated `.venv` (system Python is PEP 668 externally-managed).
 
 ## Stage status
@@ -16,7 +17,7 @@ Last updated: 2026-10-24
 | Stage | Status | Validation | Blockers | Last Commit |
 |---|---|---|---|---|
 | 00 Foundation | VERIFIED COMPLETE | Backend: 5 tests pass; live `/health` returns HTTP 200. Xcode: project parses, simulator build and `xcodebuild test` succeed, app installs and launches | No Stage 00 blockers; physical-device camera behavior remains future validation | pending commit |
-| 01 Visual-only lip-reading | NOT STARTED | None | GPU, model repo/checkpoint, fixtures, feasibility experiment | — |
+| 01 Visual-only lip-reading | BLOCKED | Upstream repo/license/architecture/checkpoints/deps/inference-command inspected and recorded in docs/INFERENCE_FEASIBILITY.md | Needs user-provided labeled sample videos (incl. genuine silent mouthing + consent), a compute target (CPU/MPS/remote CUDA), and authorization to install torch/ffmpeg + download a checkpoint | fb59dc6 |
 | 02 iOS recording/VSR | NOT STARTED | None | Depends on Stage 01 adapter and physical iPhone | — |
 | 03 Gemini interpretation | NOT STARTED | None | Backend key and evaluation set | — |
 | 04 Clarification/gestures | NOT STARTED | None | Depends on ambiguity data and physical device | — |
