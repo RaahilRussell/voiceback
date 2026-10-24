@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from app.config import settings
 from app.schemas.health import HealthResponse
 from app.schemas.transcription import TranscriptionResponse
+from app.services.gemini_client import GeminiClient, get_gemini_client
 from app.services.visual_speech_model import (
     VisualSpeechError,
     VisualSpeechModel,
     get_visual_speech_model,
 )
-from app.services.gemini_client import GeminiClient, get_gemini_client
 
 API_VERSION = "0.1.0"
 
@@ -38,9 +38,9 @@ def health_v1() -> HealthResponse:
 
 @router.post("/transcriptions", response_model=TranscriptionResponse, response_model_exclude_none=True)
 async def create_transcription(
-    file: UploadFile = File(...),
-    model: VisualSpeechModel = Depends(get_visual_speech_model),
-    gemini: GeminiClient = Depends(get_gemini_client),
+    file: UploadFile = File(...),  # noqa: B008
+    model: VisualSpeechModel = Depends(get_visual_speech_model),  # noqa: B008
+    gemini: GeminiClient = Depends(get_gemini_client),  # noqa: B008
 ) -> TranscriptionResponse:
     """Return raw Auto-AVSR output plus an optional Gemini proposal.
 
