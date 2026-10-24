@@ -37,7 +37,11 @@ final class CameraCaptureService: NSObject, AVCaptureFileOutputRecordingDelegate
     func configure() throws {
         session.beginConfiguration()
         defer { session.commitConfiguration() }
-        session.sessionPreset = .high
+        // Auto-AVSR consumes a stabilized mouth crop, so 1080p source video
+        // adds upload time without helping the backend model. VGA keeps the
+        // face sufficiently detailed while making phone-to-Modal uploads much
+        // smaller and faster.
+        session.sessionPreset = session.canSetSessionPreset(.vga640x480) ? .vga640x480 : .medium
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) else {
             throw CameraCaptureError.unavailableCamera
         }

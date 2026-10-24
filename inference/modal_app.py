@@ -89,7 +89,14 @@ def _run_model(video_only: Path, root: Path) -> dict[str, object]:
     return _ADAPTER.transcribe_video(str(video_only))
 
 
-@app.function(image=image, gpu="T4", timeout=1800, volumes={"/models": model_volume})
+@app.function(
+    image=image,
+    gpu="T4",
+    timeout=1800,
+    min_containers=1,
+    scaledown_window=300,
+    volumes={"/models": model_volume},
+)
 def transcribe_video(video_bytes: bytes) -> dict[str, object]:
     """Run real visual-only Auto-AVSR inference on uploaded video bytes."""
 
@@ -148,7 +155,7 @@ def web():
         if not data:
             raise HTTPException(status_code=400, detail="uploaded video is empty")
         try:
-            result = transcribe_video.remote(data)
+            result = await transcribe_video.remote.aio(data)
         except Exception as exc:  # GPU/transport failure
             raise HTTPException(status_code=502, detail=f"visual speech backend failed: {exc}") from exc
         if result.get("audio_used"):
