@@ -14,8 +14,11 @@
 		A10000000000000000000006 /* Transcription.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* Transcription.swift */; };
 		A10000000000000000000007 /* ApprovalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* ApprovalCard.swift */; };
 		A10000000000000000000008 /* VoiceBackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* VoiceBackTests.swift */; };
-		A10000000000000000000009 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* Info.plist */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D10000000000000000000004 /* VoiceBack target proxy */ = {isa = PBXContainerItemProxy; containerPortal = E10000000000000000000000 /* Project object */; proxyType = 1; remoteGlobalIDString = E10000000000000000000001; remoteInfo = VoiceBack; };
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		B10000000000000000000000 /* VoiceBack.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VoiceBack.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -45,15 +48,19 @@
 
 /* Begin PBXNativeTarget section */
 		E10000000000000000000001 /* VoiceBack */ = {isa = PBXNativeTarget; buildConfigurationList = F10000000000000000000001; buildPhases = (C10000000000000000000003, C10000000000000000000001, C10000000000000000000004); buildRules = (); dependencies = (); name = VoiceBack; productName = VoiceBack; productReference = B10000000000000000000000; productType = "com.apple.product-type.application"; };
-		E10000000000000000000002 /* VoiceBackTests */ = {isa = PBXNativeTarget; buildConfigurationList = F10000000000000000000002; buildPhases = (C10000000000000000000005, C10000000000000000000002); buildRules = (); dependencies = (); name = VoiceBackTests; productName = VoiceBackTests; productReference = B10000000000000000000010; productType = "com.apple.product-type.bundle.unit-test"; };
+		E10000000000000000000002 /* VoiceBackTests */ = {isa = PBXNativeTarget; buildConfigurationList = F10000000000000000000002; buildPhases = (C10000000000000000000005, C10000000000000000000002); buildRules = (); dependencies = (D10000000000000000000005); name = VoiceBackTests; productName = VoiceBackTests; productReference = B10000000000000000000010; productType = "com.apple.product-type.bundle.unit-test"; };
 /* End PBXNativeTarget section */
+
+/* Begin PBXTargetDependency section */
+		D10000000000000000000005 /* VoiceBackTests depends on VoiceBack */ = {isa = PBXTargetDependency; target = E10000000000000000000001 /* VoiceBack */; targetProxy = D10000000000000000000004 /* VoiceBack target proxy */; };
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		E10000000000000000000000 /* Project object */ = {isa = PBXProject; attributes = {LastUpgradeCheck = 1600; TargetAttributes = {E10000000000000000000001 = {CreatedOnToolsVersion = 16.0;}; E10000000000000000000002 = {CreatedOnToolsVersion = 16.0; TestTargetID = E10000000000000000000001;};};}; buildConfigurationList = F10000000000000000000000; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = D10000000000000000000000; productRefGroup = D10000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (E10000000000000000000001, E10000000000000000000002); };
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		C10000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000009); runOnlyForDeploymentPostprocessing = 0; };
+		C10000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -62,8 +69,8 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		F10000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGNING_ALLOWED = NO; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = VoiceBack/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.voiceback.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
-		F10000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGNING_ALLOWED = NO; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = VoiceBack/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.voiceback.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+		F10000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGNING_ALLOWED = NO; CURRENT_PROJECT_VERSION = 1; DEFINES_MODULE = YES; ENABLE_TESTABILITY = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = VoiceBack/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.voiceback.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		F10000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CODE_SIGNING_ALLOWED = NO; CURRENT_PROJECT_VERSION = 1; DEFINES_MODULE = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = VoiceBack/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.voiceback.app; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
 		F10000000000000000000005 /* Test Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.voiceback.tests; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VoiceBack.app/VoiceBack"; }; name = Debug; };
 		F10000000000000000000006 /* Test Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = com.voiceback.tests; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VoiceBack.app/VoiceBack"; }; name = Release; };
 /* End XCBuildConfiguration section */
