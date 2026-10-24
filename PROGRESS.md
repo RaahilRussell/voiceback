@@ -4,11 +4,12 @@ Last updated: 2026-10-24
 
 ## Current state
 
-- Current active stage: **STAGE 01 — Get real silent lip-reading working** (IN PROGRESS → BLOCKED on user-provided inputs; see below).
+- Current active stage: **STAGE 01 — Get real silent lip-reading working** (IN PROGRESS; real labeled clips now run, accuracy gate remains open).
 - Stage 00 is VERIFIED COMPLETE and committed as `fb59dc6` (backend typed `/health` + `/v1` router + 5 tests; simulator build, `xcodebuild test`, and app launch on iPhone 17 sim).
-- Stage 01 progress: upstream Auto-AVSR inspection complete and recorded in `docs/INFERENCE_FEASIBILITY.md`; `inference/README.md` updated with verified facts. Real inference is blocked pending inputs only the user can provide.
+- Stage 01 progress: upstream Auto-AVSR inspection, real T4 inference, 25 fps normalization, warm-container reuse, FP16 inference, and beam-size comparison are recorded in `docs/INFERENCE_FEASIBILITY.md`.
 - Modal validation: authenticated as profile `raahil-32424`; image built and uploaded; official Auto-AVSR checkout and 1 GB official VSR checkpoint cached in `voiceback-model-cache`; T4/CUDA/MediaPipe initialized; audio-stripped video path reached face detection. The available public fixture had no detectable face, so no transcript was claimed.
-- Next action: user provides a consented front-camera fixture with ground-truth sentence(s), then run the same `transcribe_video.remote(video_bytes)` path and measure WER on ordinary speech with audio removed and genuine silent mouthing.
+- Local deploy re-validated 2026-10-24: `modal run inference/modal_app.py` (no GPU) from the repo built the image, uploaded sources, and created both `transcribe_video` and `transcribe_official_demo` functions (run `ap-bMrKSgfv4m3pAp4cKZam7W`). Confirms the app deploys from this machine; produces no transcript.
+- Latest accuracy run: ground truth was “this is the ground truth”; outputs were `THEY TEND TO TURN AROUND TRUTH` (7.245 s) and `THIS IS TURN AROUND TO` (2.554 s). Audio was removed and both ran on `cuda:0`; the outputs are not yet accurate enough for speech output.
 - Stage 01 environment: macOS (Darwin 25.6.0), Apple Silicon arm64; no NVIDIA GPU; PyTorch, ffmpeg, and ground-truth sample videos not present; network available. Backend runs in the Python 3.14.7 `.venv`.
 - Environment: macOS (Darwin 25.6.0); full Xcode **26.6 (Build 17F113)** installed at `/Users/raahil/Downloads/Xcode.app` with iOS **26.5** simulator runtime available; `xcode-select -p` still points at `/Library/Developer/CommandLineTools`, so builds are run with `DEVELOPER_DIR` pointed at the full Xcode. Python **3.14.7** in an isolated `.venv` (system Python is PEP 668 externally-managed).
 
@@ -17,7 +18,7 @@ Last updated: 2026-10-24
 | Stage | Status | Validation | Blockers | Last Commit |
 |---|---|---|---|---|
 | 00 Foundation | VERIFIED COMPLETE | Backend: 5 tests pass; live `/health` returns HTTP 200. Xcode: project parses, simulator build and `xcodebuild test` succeed, app installs and launches | No Stage 00 blockers; physical-device camera behavior remains future validation | pending commit |
-| 01 Visual-only lip-reading | BLOCKED | Modal image build, official checkpoint cache, T4/CUDA/MediaPipe startup, FFmpeg audio removal, and video-only path reached upstream face detector; no transcript because fixture had no detectable face | Needs consented labeled front-camera sample(s), including genuine silent mouthing, for valid face detection and WER | pending |
+| 01 Visual-only lip-reading | IN PROGRESS | Two consented clips produced genuine audio-free Auto-AVSR text on T4 after 25 fps normalization; warm adapter and beam-size comparison validated | Accuracy is below the speech-output gate; needs alignment/cropping experiments and repeatable labeled takes | pending |
 | 02 iOS recording/VSR | NOT STARTED | None | Depends on Stage 01 adapter and physical iPhone | — |
 | 03 Gemini interpretation | NOT STARTED | None | Backend key and evaluation set | — |
 | 04 Clarification/gestures | NOT STARTED | None | Depends on ambiguity data and physical device | — |

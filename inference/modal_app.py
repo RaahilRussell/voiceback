@@ -38,6 +38,7 @@ image = (
 )
 
 app = modal.App(APP_NAME)
+_ADAPTER: ModelAdapter | None = None
 
 
 def _download_once(url: str, destination: Path) -> None:
@@ -66,8 +67,13 @@ def _audio_stream_count(path: Path) -> int:
 
 
 def _prepare_video(root: Path, source: Path, video_only: Path) -> None:
+    # Auto-AVSR expects 25 fps; phone capture is typically 30/60 fps, so resample
+    # (re-encode, not stream-copy) to the model's frame rate while dropping audio.
     subprocess.run(
-        ["ffmpeg", "-y", "-i", str(source), "-an", "-c:v", "copy", str(video_only)],
+        [
+            "ffmpeg", "-y", "-i", str(source), "-an", "-vf", "fps=25",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18", str(video_only),
+        ],
         check=True,
         capture_output=True,
     )
@@ -76,9 +82,12 @@ def _prepare_video(root: Path, source: Path, video_only: Path) -> None:
 
 
 def _run_model(video_only: Path, root: Path) -> dict[str, object]:
+    global _ADAPTER
     checkpoint = root / "vsr_trlrs3_base.pth"
     _download_once(DEMO_CHECKPOINT_URL, checkpoint)
-    return ModelAdapter(checkpoint_path=str(checkpoint), device="cuda").transcribe_video(str(video_only))
+    if _ADAPTER is None:
+        _ADAPTER = ModelAdapter(checkpoint_path=str(checkpoint), device="cuda", beam_size=10)
+    return _ADAPTER.transcribe_video(str(video_only))
 
 
 @app.function(image=image, gpu="T4", timeout=1800, volumes={"/models": model_volume})
@@ -108,9 +117,16 @@ def transcribe_official_demo() -> dict[str, object]:
 
 
 @app.local_entrypoint()
-def main(demo: bool = False) -> None:
+def main(demo: bool = False, video: str = "", video2: str = "") -> None:
     print(f"{APP_NAME} is authenticated and configured for T4 execution.")
     if demo:
         print(transcribe_official_demo.remote())
-    else:
+        return
+    fixtures = [path for path in (video, video2) if path]
+    if not fixtures:
         print("Call transcribe_video.remote(video_bytes) only with a consented video fixture.")
+        return
+    for path in fixtures:
+        data = Path(path).read_bytes()
+        print(f"\n=== {path} ({len(data)} bytes) ===")
+        print(transcribe_video.remote(data))

@@ -16,10 +16,11 @@ from pathlib import Path
 class ModelAdapter:
     """Stable VoiceBack interface for visual-only Auto-AVSR inference."""
 
-    def __init__(self, checkpoint_path: str | None = None, device: str = "auto", upstream_root: str = "/opt/auto_avsr") -> None:
+    def __init__(self, checkpoint_path: str | None = None, device: str = "auto", upstream_root: str = "/opt/auto_avsr", beam_size: int = 10) -> None:
         self.checkpoint_path = checkpoint_path
         self.device = device
         self.upstream_root = upstream_root
+        self.beam_size = beam_size
         self._pipeline = None
 
     def _build_pipeline(self):
@@ -50,7 +51,9 @@ class ModelAdapter:
             "torch": torch,
             "device": device,
             "model": model_module,
-            "beam_search": get_beam_search_decoder(model_module.model, model_module.token_list),
+            "beam_search": get_beam_search_decoder(
+                model_module.model, model_module.token_list, beam_size=self.beam_size
+            ),
             "loader": AVSRDataLoader(modality="video", detector="mediapipe", convert_gray=False),
             "transform": VideoTransform(subset="test"),
         }
@@ -76,7 +79,12 @@ class ModelAdapter:
         video = torch.tensor(video)
         video = video.permute((0, 3, 1, 2))
         video = pipeline["transform"](video).to(pipeline["device"])
-        with torch.no_grad():
+        inference_context = (
+            torch.autocast(device_type="cuda", dtype=torch.float16)
+            if pipeline["device"].startswith("cuda")
+            else torch.autocast(device_type="cpu", enabled=False)
+        )
+        with torch.inference_mode(), inference_context:
             model = pipeline["model"].model
             features = model.frontend(video.unsqueeze(0))
             features = model.proj_encoder(features)

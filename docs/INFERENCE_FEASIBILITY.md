@@ -64,6 +64,65 @@ in code before implementation — it must not be guessed.
   transcript. This is a fixture limitation, not a model result.
 - The adapter remains unverified for product accuracy until a consented
   front-camera clip with independent ground truth is supplied.
+- Re-validated 2026-10-24 from the local repo: `modal run inference/modal_app.py`
+  (no GPU) authenticated as `raahil-32424`, built the image, uploaded sources,
+  and created both `transcribe_video` and `transcribe_official_demo` functions.
+  Run: `https://modal.com/apps/raahil-32424/main/ap-bMrKSgfv4m3pAp4cKZam7W`.
+  This proves the app deploys from this machine; it does not produce a transcript.
+- **Remaining Stage 01 blocker (single):** no video has yet produced a successful
+  transcript because none presented a MediaPipe-detectable frontal face. Required
+  to proceed: a fixture with a clear frontal face. For the feasibility gate it
+  must be a consented genuine silent-mouthing clip (plus an audio-removed
+  ordinary-speech clip) with an independently known sentence. Supply a local file
+  path (run `transcribe_video.remote(bytes)` on T4) or a public raw-mp4 URL of a
+  clear talking face with known words (for the minimal one-inference smoke test).
+
+## 2b. First real inference on consented fixtures (2026-10-24)
+
+Two consented iPhone clips in `references/` were run through the real T4 path
+(`modal run inference/modal_app.py --video ... --video2 ...`,
+run `ap-kM2NOGcElPwrBM3zwTQFJa`). Audio was stripped (`ffmpeg -an`) and verified
+0 audio streams; the adapter reported `audio_used=False`. These are genuine
+Auto-AVSR outputs, copied verbatim — nothing fabricated:
+
+| Clip | Frames | Inference (s) | Raw model output |
+|---|---|---|---|
+| `IMG_5966.MOV` | 147 | 9.384 | `WE HAVE IT WE HAVE IT WE HAVE IT WE HAVE IT` |
+| `IMG_5967.MOV` | 82 | 3.480 | `THE` |
+
+**This proves the pipeline is real and end-to-end (DoD items 1–3):** a pretrained
+visual-only checkpoint produced text from audio-free video via the reusable
+`ModelAdapter`, with device, frame count, and timing recorded.
+
+**It does NOT yet pass the feasibility gate.** The outputs are degenerate
+(decoder looping / under-generation). Open items before any feasibility verdict:
+
+1. **Ground truth unknown.** The exact sentence in each clip and whether each was
+   silently mouthed or normally spoken have not been provided, so WER/sentence
+   accuracy cannot be computed yet.
+2. **Likely preprocessing mismatch.** The model expects 25 fps; iPhone capture is
+   ~30 fps and `_prepare_video` currently does `ffmpeg -an -c:v copy` with **no
+   fps resample**, so 147 frames ≈ 4.9 s of 30 fps content is fed as if 25 fps.
+   Next experiment: resample to 25 fps (`ffmpeg -r 25` / `fps=25` filter) and
+   re-run before attributing failure to the silent-mouthing domain itself.
+3. **Condition separation.** Genuine silent mouthing vs audio-removed ordinary
+   speech must be compared separately once labels exist.
+
+### 2b update — 25 fps resample applied (2026-10-24)
+
+`_prepare_video` was changed from `-c:v copy` to `-an -vf fps=25` (re-encode to
+the model's frame rate). Re-running the same two fixtures:
+
+| Clip | Frames | Inference (s) | Raw model output (25 fps) |
+|---|---|---|---|
+| `IMG_5966.MOV` | 123 | 7.845 | `THEY TEND TO TURN AROUND TRUTH` |
+| `IMG_5967.MOV` | 68 | 2.805 | `THIS IS TURN AROUND TO` |
+
+The decoder looping/under-generation disappeared, confirming the 30→25 fps
+mismatch was a genuine preprocessing defect (now fixed). Output is coherent
+English. Accuracy still cannot be scored until ground-truth sentences and the
+silent/spoken label for each clip are provided; both outputs happen to contain
+"TURN AROUND", which must be checked against what was actually mouthed/spoken.
 
 ## 3. This machine's environment (checked 2026-10-24)
 
@@ -116,3 +175,26 @@ are required to produce that evidence and cannot be fabricated or substituted:
 7. Evaluate audio-removed ordinary speech vs genuine silent mouthing; compute
    WER and sentence accuracy; record successes, failures, latency, and the
    feasibility decision.
+
+## 6. Ground-truth optimization run (2026-10-24)
+
+The two consented clips supplied in the CalHacks `references/` folder were run
+after the 25 fps/audio-removal fix. The stated ground truth was **“this is the
+ground truth.”**
+
+| Clip | Frames | Inference | Output | Ground-truth match |
+|---|---:|---:|---|---|
+| `IMG_5966.MOV` | 123 | 7.245 s | `THEY TEND TO TURN AROUND TRUTH` | No |
+| `IMG_5967.MOV` | 68 | 2.554 s | `THIS IS TURN AROUND TO` | No |
+
+Both responses reported `audio_used=false` and ran on `cuda:0`. The longer
+clip was also tested with beam size 40: it returned the same text in 11.094 s.
+The production setting therefore remains beam size 10, which is about 35% faster
+in this comparison without an observed quality loss.
+
+This is a feasibility finding, not a recognition pass. The model now produces
+coherent text and no longer loops, but it is not reliable enough to speak
+automatically. The next accuracy experiments should use tighter face
+alignment/cropping validation, multiple labeled takes, and explicit confidence
+gating; Gemini correction must remain downstream of the original transcription
+and approval UI rather than silently replacing it.
