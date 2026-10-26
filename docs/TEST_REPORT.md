@@ -16,5 +16,11 @@
   The real checkpoint loaded locally; both authorized reference clips produced
   audio-free transcripts. The local HTTP endpoint returned `THIS IS THE GROUND
   TRUTH` for `IMG_5967.MOV` in 1.421 seconds with `audio_used=false`.
+- Gemini outage recovery: a live local request reproduced Gemini HTTP 503
+  (`UNAVAILABLE`/high demand) after successful visual inference. The endpoint
+  now returns the raw transcript with no interpretation instead of HTTP 502;
+  the iOS approval gate remains closed. Regression test included.
+- Device validation: signed build succeeded and installed on `RaahiliPhone`;
+  launch was denied only because iOS reported the device locked.
 
 This file records observed results only; a pending line is not a pass.

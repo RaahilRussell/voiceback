@@ -41,6 +41,13 @@ class _FakeGemini:
         return self.result
 
 
+class _UnavailableGemini:
+    api_key = "test-key"
+
+    async def interpret(self, original_text: str, candidates: list[str]) -> InterpretationResult:
+        raise RuntimeError("provider temporarily unavailable")
+
+
 def _client(model: _FakeModel, gemini: _FakeGemini | None = None) -> TestClient:
     app.dependency_overrides[get_visual_speech_model] = lambda: model
     app.dependency_overrides[get_gemini_client] = lambda: gemini or _FakeGemini()
@@ -128,3 +135,16 @@ def test_configured_gemini_result_is_attached_after_raw_transcript():
     )
     assert response.status_code == 200
     assert response.json()["interpretation"]["corrected_text"] == GOOD_RESULT["text"]
+
+
+def test_gemini_outage_preserves_raw_transcript_without_approval():
+    client = _client(_FakeModel(result=GOOD_RESULT), _UnavailableGemini())
+    response = client.post(
+        "/v1/transcriptions",
+        files={"file": ("clip.mp4", b"\x00\x01\x02fakevideo", "video/mp4")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["text"] == GOOD_RESULT["text"]
+    assert body["audio_used"] is False
+    assert "interpretation" not in body

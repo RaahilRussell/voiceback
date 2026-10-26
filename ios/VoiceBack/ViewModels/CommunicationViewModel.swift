@@ -131,7 +131,7 @@ final class CommunicationViewModel: ObservableObject {
             let response = try await TranscriptionAPIClient(baseURL: backendURL).transcribe(fileURL: fileURL)
             state = .result(response)
             statusMessage = response.interpretation == nil
-                ? response.text
+                ? "Raw transcript ready — Gemini review is temporarily unavailable"
                 : "Gemini correction ready — review and approve before speech"
         } catch {
             state = .failed(error.localizedDescription)

@@ -103,9 +103,12 @@ async def create_transcription(
                 original_text=result["text"],
                 candidates=(result.get("candidates") or [result["text"]])[:5],
             )
-        except Exception as exc:
-            logger.exception("gemini interpretation failed")
-            raise HTTPException(status_code=502, detail="interpretation backend failed") from exc
+        except Exception as exc:  # noqa: BLE001 - provider outages must not erase raw VSR
+            # Gemini is an optional review layer. Never discard a valid visual
+            # transcript because the external correction provider is busy or
+            # temporarily unavailable; the client will show the raw result and
+            # keep speech approval unavailable until review can be completed.
+            logger.warning("gemini interpretation unavailable; returning raw transcript: %s", exc)
 
     return TranscriptionResponse(**result, interpretation=interpretation)
 
