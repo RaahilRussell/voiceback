@@ -2,7 +2,6 @@
 
 import ast
 import base64
-from difflib import SequenceMatcher
 import json
 import os
 import re
@@ -12,9 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import modal
-
 from model_adapter import ModelAdapter
-
 
 APP_NAME = "voiceback-inference"
 DEFAULT_CARTESIA_VOICE_ID = "694f9389-aac1-45b6-b726-9d9369183238"
@@ -234,10 +231,10 @@ def _interpret_with_gemini(result: dict[str, object]) -> dict[str, object] | Non
         candidates = [str(result.get("text") or "")]
     prompt = (
         "You are a conservative visual-speech verifier. Return exactly one JSON decision. "
-        "Prefer the supplied candidate sentence. For an obvious phrase-level visual-ASR "
-        "segmentation error, you may propose one minimal correction (for example, "
-        "YAHOO IS THIS -> YO WHO IS THIS), but do not invent a new message. Never combine "
-        "unrelated content. Do not treat confidence as a calibrated probability. Only add a "
+        "Choose only among the supplied candidate sentences; never invent, rewrite, or "
+        "combine words. If the intended phrase is absent, preserve the best candidate and "
+        "request a re-mouth, clarification, or type-to-speak fallback. Do not treat "
+        "confidence as a calibrated probability. Only add a "
         "word_check when the word is present in the supplied text and the alternative is a "
         "plausible lip-motion collision such as PRO/BRO, B/P, M/N, or F/V. Never create "
         "checks for ordinary unambiguous words. Set needs_clarification true for genuine "
@@ -315,7 +312,7 @@ def _interpret_with_gemini(result: dict[str, object]) -> dict[str, object] | Non
             # with single quotes; literal_eval keeps this fallback non-executable.
             interpretation = ast.literal_eval(raw)
         if not isinstance(interpretation, dict):
-            raise ValueError("Gemini returned a non-object interpretation")
+            raise TypeError("Gemini returned a non-object interpretation")
     return _sanitize_interpretation(interpretation, str(result.get("text") or ""), candidates)
 
 
@@ -340,11 +337,6 @@ def _sanitize_interpretation(
     proposed_key = proposed.casefold()
     selected = normalized.get(proposed_key, supplied[0])
     invalid_proposal = proposed_key not in normalized
-    accepted_phrase_correction = invalid_proposal and _allow_phrase_correction(original_text, proposed)
-    if accepted_phrase_correction:
-        supplied.append(proposed)
-        selected = proposed
-        invalid_proposal = False
     source_words = {word.casefold() for word in re.findall(r"[A-Za-z']+", original_text)}
     safe_checks: list[dict[str, object]] = []
     for raw_check in interpretation.get("word_checks", []) or []:
@@ -377,6 +369,8 @@ def _sanitize_interpretation(
             question = f"Did you mean {check['observed_word']} or {check['alternatives'][0]}?"
         elif len(supplied) > 1:
             question = f"Did you mean {supplied[0]} or {supplied[1]}?"
+        else:
+            question = "Please re-mouth the sentence or type what you intended."
     if not needs_clarification:
         question = None
     return {
@@ -389,18 +383,6 @@ def _sanitize_interpretation(
         "clarification_question": question,
         "word_checks": safe_checks,
     }
-
-
-def _allow_phrase_correction(original_text: str, proposed_text: str) -> bool:
-    """Allow only a narrow, evidence-preserving phrase correction from Gemini."""
-    source = [word.casefold() for word in re.findall(r"[A-Za-z']+", original_text)]
-    proposed = [word.casefold() for word in re.findall(r"[A-Za-z']+", proposed_text)]
-    if not source or not proposed or len(proposed) > len(source) + 2:
-        return False
-    if not set(source).intersection({"yahoo", "yahu", "whois", "whodis"}):
-        return False
-    overlap = SequenceMatcher(a=source, b=proposed).ratio()
-    return overlap >= 0.50 and len(proposed) <= 6
 
 
 @app.function(image=web_image, secrets=[modal.Secret.from_name("voiceback-secrets")])
@@ -421,7 +403,7 @@ def web():
         return {"status": "ok"}
 
     @api.post("/v1/transcriptions")
-    async def create_transcription(file: Any = File(...)) -> dict:
+    async def create_transcription(file: Any = File(...)) -> dict:  # noqa: B008
         content_type = file.content_type or ""
         if not content_type.startswith("video/"):
             raise HTTPException(status_code=415, detail=f"expected a video upload, got '{content_type or 'unknown'}'")
@@ -476,7 +458,7 @@ def web():
 
     @api.post("/v1/voices/clone")
     async def clone_voice(
-        clip: UploadFile = File(...),
+        clip: UploadFile = File(...),  # noqa: B008
         user_id: str = Form(...),
         name: str = Form("VoiceBack personal voice"),
         language: str = Form("en"),

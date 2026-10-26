@@ -17,5 +17,10 @@ VoiceBack is a native iOS assistive communication app for people who can articul
 3. Copy `.env.example` to `.env` and add credentials only when integrations are implemented.
 4. Run `make test` for the backend checks.
 
+The reproducible checks are `make lint`, `make test`, `make check`, and
+`make xcode-list`. `GET /health` reports process liveness; `GET /readyz`
+reports model, Gemini, and TTS readiness separately. A missing real model must
+remain an explicit blocker; demo fixtures are never reported as real inference.
+
 No microphone audio is used by the visual speech recognition path. Model weights and credentials are intentionally not included.
 

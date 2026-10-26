@@ -70,3 +70,20 @@ def test_word_safety_gate_locks_uncertain_word() -> None:
     gated = GeminiClient._apply_word_safety_gate(result)
     assert gated.needs_clarification is True
     assert gated.clarification_question == "Did you mean PRO or BRO?"
+
+
+def test_unlisted_gemini_rewrite_is_not_authorized() -> None:
+    result = InterpretationResult(
+        original_text="YAHOO IS THIS",
+        corrected_text="YO WHO IS THIS",
+        candidates=["YAHOO IS THIS", "YO WHO IS THIS"],
+        selected_index=1,
+        confidence=0.90,
+        needs_clarification=False,
+    )
+    gated = GeminiClient._sanitize_and_gate(
+        result, "YAHOO IS THIS", ["YAHOO IS THIS"]
+    )
+    assert gated.corrected_text == "YAHOO IS THIS"
+    assert gated.needs_clarification is True
+    assert gated.clarification_question == "Please re-mouth the sentence or type what you intended."

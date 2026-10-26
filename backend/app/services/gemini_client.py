@@ -138,6 +138,8 @@ class GeminiClient:
             question = result.clarification_question
             if not question and len(supplied) > 1:
                 question = f"Did you mean {supplied[0]} or {supplied[1]}?"
+            if not question:
+                question = "Please re-mouth the sentence or type what you intended."
             sanitized = sanitized.model_copy(
                 update={
                     "needs_clarification": True,

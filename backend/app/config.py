@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     cartesia_version: str = Field(default="2025-04-16", validation_alias=AliasChoices("VOICEBACK_CARTESIA_VERSION", "CARTESIA_VERSION"))
     model_checkpoint_path: str | None = None
     model_device: str = "auto"
+    demo_mode: bool = Field(default=False, validation_alias=AliasChoices("VOICEBACK_DEMO_MODE", "DEMO_MODE"))
+    real_model: bool = Field(default=True, validation_alias=AliasChoices("VOICEBACK_REAL_MODEL", "REAL_MODEL"))
+    allow_video_upload: bool = Field(default=True, validation_alias=AliasChoices("VOICEBACK_ALLOW_VIDEO_UPLOAD", "ALLOW_VIDEO_UPLOAD"))
+    backend_url: str = Field(default="http://127.0.0.1:8000", validation_alias=AliasChoices("VOICEBACK_BACKEND_URL", "BACKEND_URL"))
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="VOICEBACK_", extra="ignore")
 
