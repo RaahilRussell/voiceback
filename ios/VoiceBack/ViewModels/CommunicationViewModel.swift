@@ -53,9 +53,8 @@ final class CommunicationViewModel: ObservableObject {
     private let backendURL: URL
     private(set) var voiceID: String?
 
-    /// Public Modal HTTPS endpoint so a physical iPhone can reach the backend
-    /// even when campus Wi-Fi blocks phone-to-Mac LAN traffic.
-    init(backendURL: URL = URL(string: "https://raahil-32424--voiceback-inference-web.us-east.modal.run")!) {
+    /// Local laptop backend. Update the LAN address if the laptop's Wi-Fi IP changes.
+    init(backendURL: URL = URL(string: "http://192.168.1.196:8000")!) {
         self.backendURL = backendURL
     }
 

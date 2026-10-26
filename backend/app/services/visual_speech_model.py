@@ -1,15 +1,14 @@
-"""Visual-only VSR boundary.
-
-Heavy Auto-AVSR inference runs on the Modal T4 app (`inference/modal_app.py`),
-which strips audio and resamples to 25 fps before the model ever sees a frame.
-This module is the backend's thin boundary to that function; it never consumes
-microphone audio. The provider is resolved through a FastAPI dependency so tests
-can substitute a fake without touching Modal or a GPU.
-"""
+"""Visual-only VSR boundary with local laptop inference as the default."""
 
 from __future__ import annotations
 
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
 from typing import Protocol
+
+from app.config import settings
 
 MODAL_APP = "voiceback-inference"
 MODAL_FUNCTION = "transcribe_video"
@@ -33,9 +32,57 @@ class ModalVisualSpeechModel:
         return function.remote(video_bytes)
 
 
-_default_model: VisualSpeechModel = ModalVisualSpeechModel()
+class LocalVisualSpeechModel:
+    """Warm, in-process Auto-AVSR adapter for the developer laptop."""
+
+    def __init__(self) -> None:
+        self._adapter = None
+
+    def predict(self, video_bytes: bytes) -> dict:
+        if not settings.real_model:
+            raise VisualSpeechError("REAL_MODEL=false; synthetic recognition is not enabled")
+        if not settings.model_checkpoint_path:
+            raise VisualSpeechError(
+                "local model is not ready: set MODEL_CHECKPOINT_PATH to an authorized Auto-AVSR checkpoint"
+            )
+        repository_root = Path(__file__).resolve().parents[3]
+        if str(repository_root) not in sys.path:
+            sys.path.insert(0, str(repository_root))
+        from inference.model_adapter import ModelAdapter
+
+        if self._adapter is None:
+            self._adapter = ModelAdapter(
+                checkpoint_path=settings.model_checkpoint_path,
+                device=settings.model_device,
+                upstream_root=settings.model_upstream_root,
+                beam_size=settings.model_beam_size,
+            )
+        with tempfile.TemporaryDirectory(prefix="voiceback-local-") as directory:
+            source = f"{directory}/source.mov"
+            normalized = f"{directory}/video-only.mp4"
+            with open(source, "wb") as handle:
+                handle.write(video_bytes)
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", source, "-an", "-vf", "fps=25", "-c:v", "libx264", "-preset", "ultrafast", normalized],
+                    check=True,
+                    capture_output=True,
+                )
+                return self._adapter.transcribe_video(normalized)
+            except FileNotFoundError as exc:
+                raise VisualSpeechError("ffmpeg is required for local visual-only inference") from exc
+            except subprocess.CalledProcessError as exc:
+                raise VisualSpeechError("local video normalization failed") from exc
+            except (ImportError, RuntimeError, ValueError) as exc:
+                raise VisualSpeechError(f"local Auto-AVSR inference failed: {exc}") from exc
+
+
+_local_model: VisualSpeechModel = LocalVisualSpeechModel()
+_modal_model: VisualSpeechModel = ModalVisualSpeechModel()
 
 
 def get_visual_speech_model() -> VisualSpeechModel:
-    """FastAPI dependency; overridden in tests with a fake provider."""
-    return _default_model
+    """FastAPI dependency; tests override this without touching a runtime."""
+    if settings.inference_backend == "modal":
+        return _modal_model
+    return _local_model

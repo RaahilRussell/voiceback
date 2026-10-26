@@ -24,8 +24,11 @@ class Settings(BaseSettings):
     )
     cartesia_model: str = Field(default="sonic-2", validation_alias=AliasChoices("VOICEBACK_CARTESIA_MODEL", "CARTESIA_MODEL"))
     cartesia_version: str = Field(default="2025-04-16", validation_alias=AliasChoices("VOICEBACK_CARTESIA_VERSION", "CARTESIA_VERSION"))
-    model_checkpoint_path: str | None = None
-    model_device: str = "auto"
+    model_checkpoint_path: str | None = Field(default=None, validation_alias=AliasChoices("VOICEBACK_MODEL_CHECKPOINT_PATH", "MODEL_CHECKPOINT_PATH"))
+    model_device: str = Field(default="auto", validation_alias=AliasChoices("VOICEBACK_MODEL_DEVICE", "MODEL_DEVICE"))
+    inference_backend: str = Field(default="local", validation_alias=AliasChoices("VOICEBACK_INFERENCE_BACKEND", "INFERENCE_BACKEND"))
+    model_upstream_root: str = Field(default="/opt/auto_avsr", validation_alias=AliasChoices("VOICEBACK_MODEL_UPSTREAM_ROOT", "MODEL_UPSTREAM_ROOT"))
+    model_beam_size: int = Field(default=5, validation_alias=AliasChoices("VOICEBACK_MODEL_BEAM_SIZE", "MODEL_BEAM_SIZE"))
     demo_mode: bool = Field(default=False, validation_alias=AliasChoices("VOICEBACK_DEMO_MODE", "DEMO_MODE"))
     real_model: bool = Field(default=True, validation_alias=AliasChoices("VOICEBACK_REAL_MODEL", "REAL_MODEL"))
     allow_video_upload: bool = Field(default=True, validation_alias=AliasChoices("VOICEBACK_ALLOW_VIDEO_UPLOAD", "ALLOW_VIDEO_UPLOAD"))

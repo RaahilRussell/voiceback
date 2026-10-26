@@ -1,10 +1,13 @@
 DEVELOPER_DIR ?= /Users/raahil/Downloads/Xcode.app/Contents/Developer
 XCODEBUILD = DEVELOPER_DIR=$(DEVELOPER_DIR) xcodebuild
 
-.PHONY: install test lint check run api-dev format xcode-list simulator-build model-check model-smoke
+.PHONY: install local-setup local-run test lint check run api-dev format xcode-list simulator-build model-check model-smoke
 
 install:
 	python3 -m pip install -e 'backend[dev]'
+
+local-setup:
+	./inference/setup_local.sh
 
 test:
 	.venv/bin/python -m pytest backend/tests -q
@@ -17,8 +20,11 @@ check: lint test xcode-list
 api-dev:
 	.venv/bin/python -m uvicorn app.main:app --app-dir backend
 
+local-run:
+	set -a; . ./.env; set +a; .venv-local/bin/uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
+
 run:
-	$(MAKE) api-dev
+	$(MAKE) local-run
 
 format:
 	.venv/bin/ruff check backend inference --fix

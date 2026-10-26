@@ -58,9 +58,10 @@ async def create_transcription(
 ) -> TranscriptionResponse:
     """Return raw Auto-AVSR output plus an optional Gemini proposal.
 
-    The upload is forwarded to the Modal Auto-AVSR function, which removes audio
-    and resamples before inference. No microphone/audio path is used here. Gemini
-    can propose a correction, but this endpoint never treats it as approval to speak.
+    The upload is normalized locally and passed to the configured visual-speech
+    backend, which removes audio and resamples before inference. No
+    microphone/audio path is used here. Gemini can propose a correction, but
+    this endpoint never treats it as approval to speak.
     """
     content_type = file.content_type or ""
     if not content_type.startswith("video/"):
@@ -80,6 +81,7 @@ async def create_transcription(
         # Recoverable: no detectable face, unintelligible, etc.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:  # provider/transport failure
+        logger.exception("visual speech backend failed")
         raise HTTPException(status_code=502, detail="visual speech backend failed") from exc
 
     if result.get("audio_used"):

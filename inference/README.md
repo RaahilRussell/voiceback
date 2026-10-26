@@ -28,11 +28,13 @@ normalization, face-detection/landmark tooling, and that the `video` loader
 never reads the audio track.
 
 `model_adapter.py` exposes the stable `ModelAdapter.transcribe_video` boundary.
-The adapter uses the official video preprocessing components, PyAV frame decoding,
-and a CUDA-capable device when available; it does not open or decode microphone
-audio.
+The adapter uses the official video preprocessing components and PyAV frame
+decoding; it does not open or decode microphone audio. On Apple Silicon, the
+upstream ESPnet beam decoder currently has CPU/MPS tensor incompatibilities, so
+the validated local default is `MODEL_DEVICE=cpu`; MPS remains an explicit
+experimental option until that decoder boundary is patched and benchmarked.
 
-## Modal GPU boundary
+## Optional Modal GPU boundary
 
 `modal_app.py` defines the `voiceback-inference` Modal app and a T4 GPU
 function. It installs FFmpeg, PyTorch, compatible legacy MediaPipe, and the
@@ -48,7 +50,22 @@ detection but contained no detectable face, so no transcript is reported as
 successful. A consented front-camera fixture is still required for Stage 01
 benchmark evidence.
 
-One-time local setup:
+The active development path does not require Modal. To install the laptop
+runtime, from the repository root run:
+
+```bash
+make local-setup
+```
+
+This creates `.venv-local`, clones the ignored upstream checkout into
+`.local/auto_avsr`, and leaves the authorized checkpoint in `checkpoints/`.
+Then start the LAN backend with:
+
+```bash
+make local-run
+```
+
+The older Modal-only setup remains below for historical remote validation:
 
 ```bash
 python3 -m pip install -r inference/requirements-modal.txt

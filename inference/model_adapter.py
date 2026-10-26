@@ -37,7 +37,12 @@ class ModelAdapter:
         from lightning import ModelModule, get_beam_search_decoder
         from preparation.data.data_module import AVSRDataLoader
 
-        device = "cuda:0" if self.device in {"auto", "cuda"} and torch.cuda.is_available() else "cpu"
+        if self.device in {"cuda", "cuda:0"} and torch.cuda.is_available():
+            device = "cuda:0"
+        elif self.device in {"mps", "auto"} and torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
         class _Config(dict):
             __getattr__ = dict.__getitem__
 

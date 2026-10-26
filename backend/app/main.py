@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 
 from app.api.v1 import router as v1_router
@@ -20,9 +22,10 @@ def health() -> HealthResponse:
 @app.get("/readyz", response_model=ReadinessResponse)
 def readiness() -> ReadinessResponse:
     reasons: list[str] = []
-    generalist_ready = bool(settings.model_checkpoint_path)
+    checkpoint = Path(settings.model_checkpoint_path) if settings.model_checkpoint_path else None
+    generalist_ready = bool(checkpoint and checkpoint.is_file())
     if not generalist_ready:
-        reasons.append("model_checkpoint_path is not configured for the local backend")
+        reasons.append("model_checkpoint_path is missing or does not point to a local checkpoint")
     gemini_ready = bool(settings.gemini_api_key)
     if not gemini_ready:
         reasons.append("Gemini API key is not configured")
