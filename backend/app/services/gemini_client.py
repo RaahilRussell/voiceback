@@ -38,6 +38,7 @@ class GeminiClient:
         original_text: str,
         candidates: list[str],
         context: str = "",
+        candidate_scores: list[dict] | None = None,
     ) -> InterpretationResult:
         """Return one typed decision; never authorize speech by itself."""
 
@@ -52,11 +53,47 @@ class GeminiClient:
         if not normalized_candidates:
             raise ValueError("at least one non-empty transcription candidate is required")
         return await asyncio.to_thread(
-            self._interpret_sync, original_text.strip(), normalized_candidates, context.strip()
+            self._interpret_sync,
+            original_text.strip(),
+            normalized_candidates,
+            context.strip(),
+            candidate_scores,
         )
 
+    @staticmethod
+    def should_review(
+        original_text: str,
+        candidates: list[str],
+        candidate_scores: list[dict] | None = None,
+    ) -> bool:
+        """Route only disagreements or known visual-confusion cases to Gemini."""
+        normalized = [candidate.strip().casefold() for candidate in candidates if candidate.strip()]
+        if len(set(normalized)) <= 1:
+            return False
+        original_words = re.findall(r"[a-z']+", original_text.casefold())
+        candidate_words = [re.findall(r"[a-z']+", candidate) for candidate in normalized]
+        for index, word in enumerate(original_words):
+            alternatives = {words[index] for words in candidate_words if index < len(words)}
+            if any(
+                frozenset({word, alternative}) <= group
+                for group in _VISUAL_CONFUSION_GROUPS
+                for alternative in alternatives
+            ):
+                return True
+        if candidate_scores and len(candidate_scores) >= 2:
+            try:
+                margin = float(candidate_scores[0]["raw_score"]) - float(candidate_scores[1]["raw_score"])
+                return margin <= 1.0
+            except (KeyError, TypeError, ValueError):
+                return True
+        return True
+
     def _interpret_sync(
-        self, original_text: str, candidates: list[str], context: str
+        self,
+        original_text: str,
+        candidates: list[str],
+        context: str,
+        candidate_scores: list[dict] | None,
     ) -> InterpretationResult:
         from google import genai
         from google.genai import types
@@ -79,6 +116,8 @@ class GeminiClient:
             "candidate disagreement or an uncertain collision. Do not authorize speech.\n\n"
             f"Original visual transcription: {original_text}\n"
             f"Candidates (JSON): {json.dumps(candidates, ensure_ascii=False)}\n"
+            f"Visual decoder evidence (raw scores, not probabilities): "
+            f"{json.dumps(candidate_scores or [], ensure_ascii=False)}\n"
             f"Conversation context: {context or '(none)'}"
         )
         response = self._client.models.generate_content(

@@ -166,6 +166,7 @@ class StreamingSession:
             source="auto_avsr",
             text=result.get("text", ""),
             candidates=result.get("candidates", []),
+            candidate_scores=result.get("candidate_scores", []),
             audio_used=result.get("audio_used", False),
             frames=result.get("frames", len(self.frames)),
             inference_seconds=result.get("inference_seconds"),
@@ -173,10 +174,13 @@ class StreamingSession:
         )
         if self.gemini.api_key:
             try:
-                interpretation = await self.gemini.interpret(
-                    original_text=str(result.get("text", "")),
-                    candidates=(result.get("candidates") or [result.get("text", "")])[:5],
-                )
+                kwargs = {
+                    "original_text": str(result.get("text", "")),
+                    "candidates": (result.get("candidates") or [result.get("text", "")])[:5],
+                }
+                if result.get("candidate_scores"):
+                    kwargs["candidate_scores"] = result["candidate_scores"]
+                interpretation = await self.gemini.interpret(**kwargs)
                 await self.emit(
                     "context_result",
                     state="proposed",

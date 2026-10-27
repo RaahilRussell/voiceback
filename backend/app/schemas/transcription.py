@@ -3,6 +3,14 @@ from pydantic import BaseModel, Field
 from app.schemas.interpretation import InterpretationResult
 
 
+class CandidateScore(BaseModel):
+    """Raw decoder evidence; it is not a calibrated probability."""
+
+    text: str
+    raw_score: float | None = None
+    score_type: str | None = None
+
+
 class TranscriptionResponse(BaseModel):
     """Typed visual-only transcription result returned to the iOS client.
 
@@ -13,6 +21,7 @@ class TranscriptionResponse(BaseModel):
 
     text: str
     candidates: list[str] = Field(default_factory=list)
+    candidate_scores: list[CandidateScore] | None = None
     audio_used: bool
     frames: int
     device: str

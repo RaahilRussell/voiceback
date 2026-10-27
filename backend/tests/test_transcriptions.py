@@ -9,7 +9,7 @@ from app.services.visual_speech_model import VisualSpeechError, get_visual_speec
 
 GOOD_RESULT = {
     "text": "THIS IS THE GROUND TRUTH",
-    "candidates": ["THIS IS THE GROUND TRUTH"],
+    "candidates": ["THIS IS THE GROUND TRUTH", "THIS IS THE GROUND TRUCE"],
     "audio_used": False,
     "frames": 123,
     "device": "cuda:0",

@@ -87,3 +87,27 @@ def test_unlisted_gemini_rewrite_is_not_authorized() -> None:
     assert gated.corrected_text == "YAHOO IS THIS"
     assert gated.needs_clarification is True
     assert gated.clarification_question == "Please re-mouth the sentence or type what you intended."
+
+
+def test_context_review_routes_known_lip_confusion_even_with_large_margin() -> None:
+    assert GeminiClient.should_review(
+        "I AM A PRO",
+        ["I AM A PRO", "I AM A BRO"],
+        [{"raw_score": -1.0}, {"raw_score": -4.0}],
+    ) is True
+
+
+def test_context_review_skips_easy_high_margin_candidates() -> None:
+    assert GeminiClient.should_review(
+        "THIS IS THE GROUND TRUTH",
+        ["THIS IS THE GROUND TRUTH", "THIS IS THE GROUND TRUCE"],
+        [{"raw_score": -1.0}, {"raw_score": -3.5}],
+    ) is False
+
+
+def test_context_review_routes_low_margin_candidate_disagreement() -> None:
+    assert GeminiClient.should_review(
+        "THIS IS THE GROUND TRUTH",
+        ["THIS IS THE GROUND TRUTH", "THIS IS THE GROUND TRUCE"],
+        [{"raw_score": -1.0}, {"raw_score": -1.4}],
+    ) is True

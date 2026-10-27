@@ -115,12 +115,14 @@ async def create_transcription(
         result.get("device"),
     )
     interpretation = None
-    if gemini.api_key:
+    candidates = (result.get("candidates") or [result["text"]])[:5]
+    candidate_scores = result.get("candidate_scores")
+    if gemini.api_key and GeminiClient.should_review(result["text"], candidates, candidate_scores):
         try:
-            interpretation = await gemini.interpret(
-                original_text=result["text"],
-                candidates=(result.get("candidates") or [result["text"]])[:5],
-            )
+            kwargs = {"original_text": result["text"], "candidates": candidates}
+            if candidate_scores:
+                kwargs["candidate_scores"] = candidate_scores
+            interpretation = await gemini.interpret(**kwargs)
         except Exception as exc:  # noqa: BLE001 - provider outages must not erase raw VSR
             # Gemini is an optional review layer. Never discard a valid visual
             # transcript because the external correction provider is busy or

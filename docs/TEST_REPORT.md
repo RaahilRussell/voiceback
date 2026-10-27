@@ -22,5 +22,8 @@
   the iOS approval gate remains closed. Regression test included.
 - Device validation: signed build succeeded and installed on `RaahiliPhone`;
   launch was denied only because iOS reported the device locked.
+- Beam/context routing: a real local clip returned five Auto-AVSR hypotheses
+  with raw `beam_log_score` values; selective-review unit tests cover known
+  PRO/BRO confusion, low-margin disagreement, and high-margin bypass.
 
 This file records observed results only; a pending line is not a pass.

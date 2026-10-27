@@ -95,12 +95,28 @@ class ModelAdapter:
             features = model.proj_encoder(features)
             encoded, _ = model.encoder(features, None)
             hypotheses = pipeline["beam_search"](encoded.squeeze(0))
-            token_ids = torch.tensor(list(map(int, hypotheses[0].yseq[1:])))
-            text = pipeline["model"].text_transform.post_process(token_ids).replace("<eos>", "")
+            beam_candidates: list[dict[str, object]] = []
+            seen: set[str] = set()
+            for hypothesis in hypotheses[: self.beam_size]:
+                token_ids = torch.tensor(list(map(int, hypothesis.yseq[1:])))
+                candidate = pipeline["model"].text_transform.post_process(token_ids).replace("<eos>", "").strip()
+                if not candidate or candidate in seen:
+                    continue
+                seen.add(candidate)
+                score = hypothesis.score
+                if hasattr(score, "detach"):
+                    score = score.detach().cpu().item()
+                beam_candidates.append(
+                    {"text": candidate, "raw_score": float(score), "score_type": "beam_log_score"}
+                )
+            if not beam_candidates:
+                raise ValueError("Auto-AVSR beam decoder returned no text candidates")
+            text = str(beam_candidates[0]["text"])
 
         return {
             "text": text.strip(),
-            "candidates": [text.strip()],
+            "candidates": [item["text"] for item in beam_candidates],
+            "candidate_scores": beam_candidates,
             "audio_used": False,
             "frames": int(video.shape[0]),
             "device": pipeline["device"],
