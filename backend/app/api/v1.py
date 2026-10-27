@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, WebSocket
 
 from app.config import DEFAULT_CARTESIA_VOICE_ID, settings
 from app.schemas.actions import (
@@ -16,6 +16,7 @@ from app.schemas.transcription import TranscriptionResponse
 from app.services.cartesia_client import CartesiaClient
 from app.services.clarification_engine import ClarificationEngine
 from app.services.gemini_client import GeminiClient, get_gemini_client
+from app.services.streaming_session import StreamingSession
 from app.services.visual_speech_model import (
     VisualSpeechError,
     VisualSpeechModel,
@@ -34,6 +35,23 @@ voice_manager = VoiceManager()
 cartesia = CartesiaClient()
 
 router = APIRouter(prefix="/v1", tags=["v1"])
+
+
+@router.websocket("/sessions/{session_id}/stream")
+async def stream_session(websocket: WebSocket, session_id: str) -> None:
+    """Receive binary JPEG frame chunks and return typed streaming events.
+
+    `session_id` is currently an opaque client correlation value. The model
+    still performs one final utterance-level decode; the transport and event
+    contract are ready for a causal next-token decoder without mislabeling the
+    current offline checkpoint as streaming.
+    """
+    await StreamingSession(
+        websocket,
+        get_visual_speech_model(),
+        get_gemini_client(),
+        session_id,
+    ).run()
 
 
 @router.get("/health", response_model=HealthResponse)

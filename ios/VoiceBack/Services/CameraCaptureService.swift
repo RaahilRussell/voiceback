@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreImage
 
 enum CameraCaptureError: LocalizedError {
     case unavailableCamera
@@ -19,10 +20,14 @@ enum CameraCaptureError: LocalizedError {
 /// Configures a front-camera, video-only capture session and records a short
 /// silent clip. There is intentionally no microphone input anywhere here, and
 /// no `AVAudioSession` is ever touched.
-final class CameraCaptureService: NSObject, AVCaptureFileOutputRecordingDelegate, @unchecked Sendable {
+final class CameraCaptureService: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
+    private let videoOutput = AVCaptureVideoDataOutput()
     private let sessionQueue = DispatchQueue(label: "VoiceBack.CameraSession")
+    private let frameQueue = DispatchQueue(label: "VoiceBack.CameraFrames")
+    private let imageContext = CIContext()
+    private var frameHandler: ((Data) -> Void)?
     private var recordingContinuation: CheckedContinuation<URL, Error>?
 
     /// Requests camera permission only — never microphone.
@@ -39,7 +44,7 @@ final class CameraCaptureService: NSObject, AVCaptureFileOutputRecordingDelegate
         defer { session.commitConfiguration() }
         // Auto-AVSR consumes a stabilized mouth crop, so 1080p source video
         // adds upload time without helping the backend model. VGA keeps the
-        // face sufficiently detailed while making phone-to-Modal uploads much
+        // face sufficiently detailed while making phone-to-laptop uploads much
         // smaller and faster.
         session.sessionPreset = session.canSetSessionPreset(.vga640x480) ? .vga640x480 : .medium
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) else {
@@ -50,6 +55,12 @@ final class CameraCaptureService: NSObject, AVCaptureFileOutputRecordingDelegate
         session.addInput(input)
         guard session.canAddOutput(movieOutput) else { throw CameraCaptureError.cannotAddOutput }
         session.addOutput(movieOutput)
+        videoOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)
+        ]
+        videoOutput.setSampleBufferDelegate(self, queue: frameQueue)
+        guard session.canAddOutput(videoOutput) else { throw CameraCaptureError.cannotAddOutput }
+        session.addOutput(videoOutput)
     }
 
     func startRunning() {
@@ -80,6 +91,32 @@ final class CameraCaptureService: NSObject, AVCaptureFileOutputRecordingDelegate
 
     func stopRecording() {
         if movieOutput.isRecording { movieOutput.stopRecording() }
+    }
+
+    /// Sends compressed video-only JPEG frames to the experimental streaming
+    /// transport. The backend decides whether the installed model supports
+    /// genuine partial decoding; no audio input is added here.
+    func startLiveFrameStreaming(_ handler: @escaping (Data) -> Void) {
+        frameHandler = handler
+    }
+
+    func stopLiveFrameStreaming() {
+        frameHandler = nil
+    }
+
+    func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        guard output === videoOutput,
+              let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+              let jpeg = imageContext.jpegRepresentation(
+                of: CIImage(cvPixelBuffer: pixelBuffer),
+                colorSpace: CGColorSpaceCreateDeviceRGB(),
+                options: [:]
+              ) else { return }
+        frameHandler?(jpeg)
     }
 
     // MARK: AVCaptureFileOutputRecordingDelegate

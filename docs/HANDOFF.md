@@ -20,6 +20,12 @@ explicit approval before Cartesia speech output.
   required for local inference.
 - The endpoint was verified with a real clip and returned
   `THIS IS THE GROUND TRUTH` with `audio_used=false`.
+- The iOS app now exposes **Start live silent stream**. It sends binary JPEG
+  camera frames over `WS /v1/sessions/{session_id}/stream`; the backend emits
+  typed capture, provisional-prefix, final-candidate, Gemini-context, and
+  approval-decision events. Provisional text is explicitly marked
+  `repeated_offline_prefix` because the installed Auto-AVSR checkpoint does
+  not yet support cached causal next-token decoding.
 - The local runtime keeps one Auto-AVSR adapter warm inside the laptop backend.
   Modal remains available only as a historical/optional remote adapter and is
   not needed for the current development path.

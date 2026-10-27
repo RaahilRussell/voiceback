@@ -1,6 +1,60 @@
 import AVFoundation
 import Foundation
 
+final class StreamingTranscriptionClient: @unchecked Sendable {
+    private let task: URLSessionWebSocketTask
+    private let session: URLSession
+    private var receiveTask: Task<Void, Never>?
+    var onEvent: ((Data) -> Void)?
+
+    init(baseURL: URL) {
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.scheme = components.scheme == "https" ? "wss" : "ws"
+        components.path = "/v1/sessions/\(UUID().uuidString)/stream"
+        session = URLSession(configuration: .default)
+        task = session.webSocketTask(with: components.url!)
+    }
+
+    func start(fps: Int = 25) {
+        task.resume()
+        sendJSON(["type": "start", "fps": fps, "format": "jpeg", "audio": false, "prefix_preview": true])
+        receiveTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                do {
+                    let message = try await task.receive()
+                    switch message {
+                    case .data(let data): onEvent?(data)
+                    case .string(let text): onEvent?(Data(text.utf8))
+                    @unknown default: break
+                    }
+                } catch { return }
+            }
+        }
+    }
+
+    func send(frame: Data) {
+        Task { try? await task.send(.data(frame)) }
+    }
+
+    func finish() {
+        sendJSON(["type": "end"])
+    }
+
+    func cancel() {
+        sendJSON(["type": "cancel"])
+        receiveTask?.cancel()
+        task.cancel(with: .goingAway, reason: nil)
+        session.invalidateAndCancel()
+    }
+
+    private func sendJSON(_ value: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: value),
+              let text = String(data: data, encoding: .utf8) else { return }
+        Task { try? await task.send(.string(text)) }
+    }
+}
+
 /// Minimal multipart client for `POST /v1/transcriptions`.
 struct TranscriptionAPIClient {
     let baseURL: URL
@@ -38,6 +92,7 @@ final class CommunicationViewModel: ObservableObject {
         case needsPermission
         case recording
         case uploading
+        case streaming
         case enrolling
         case result(TranscriptionResponse)
         case approved(TranscriptionResponse)
@@ -51,6 +106,8 @@ final class CommunicationViewModel: ObservableObject {
     private let voiceOutput = VoiceOutputService()
     private let voiceEnrollment = VoiceEnrollmentService()
     private let backendURL: URL
+    private var streamingClient: StreamingTranscriptionClient?
+    private var streamingResponse: TranscriptionResponse?
     private(set) var voiceID: String?
 
     /// Local laptop backend. Update the LAN address if the laptop's Wi-Fi IP changes.
@@ -89,6 +146,28 @@ final class CommunicationViewModel: ObservableObject {
 
     func stopRecording() {
         capture.stopRecording()
+    }
+
+    func startLiveStream() {
+        state = .streaming
+        statusMessage = "Live frames connected — final decode is pending"
+        let client = StreamingTranscriptionClient(baseURL: backendURL)
+        streamingClient = client
+        client.onEvent = { [weak self] data in
+            Task { @MainActor [weak self] in
+                self?.handleStreamEvent(data)
+            }
+        }
+        client.start()
+        capture.startLiveFrameStreaming { [weak client] frame in
+            client?.send(frame: frame)
+        }
+    }
+
+    func stopLiveStream() {
+        capture.stopLiveFrameStreaming()
+        streamingClient?.finish()
+        statusMessage = "Finalizing visual transcription…"
     }
 
     func approve(_ response: TranscriptionResponse) {
@@ -139,7 +218,65 @@ final class CommunicationViewModel: ObservableObject {
     }
 
     func reset() {
+        streamingClient?.cancel()
+        streamingClient = nil
+        capture.stopLiveFrameStreaming()
         state = .ready
         statusMessage = "Ready — tap record and silently mouth a sentence"
+    }
+
+    private func handleStreamEvent(_ data: Data) {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let event = object["event"] as? String else { return }
+        switch event {
+        case "capture_quality":
+            let count = object["frame_count"] as? Int ?? 0
+            statusMessage = "Live camera stream — \(count) frames"
+        case "partial_hypothesis":
+            let text = object["text"] as? String ?? ""
+            statusMessage = text.isEmpty
+                ? "Frames received — final visual decode running"
+                : "Provisional: \(text)"
+        case "final_candidates":
+            guard let text = object["text"] as? String else { return }
+            let response = TranscriptionResponse(
+                text: text,
+                candidates: object["candidates"] as? [String] ?? [text],
+                audioUsed: object["audio_used"] as? Bool ?? false,
+                frames: object["frames"] as? Int ?? 0,
+                device: object["device"] as? String ?? "unknown",
+                inferenceSeconds: object["inference_seconds"] as? Double ?? 0,
+                model: "mpc001/auto-avsr",
+                interpretation: nil
+            )
+            streamingClient = nil
+            streamingResponse = response
+            state = .result(response)
+            statusMessage = "Live transcript ready — Gemini review is still required"
+        case "context_result":
+            guard let raw = streamingResponse,
+                  let interpretationObject = object["interpretation"] as? [String: Any],
+                  let interpretationData = try? JSONSerialization.data(withJSONObject: interpretationObject),
+                  let interpretation = try? JSONDecoder().decode(GeminiInterpretation.self, from: interpretationData)
+            else { return }
+            let response = TranscriptionResponse(
+                text: raw.text,
+                candidates: raw.candidates,
+                audioUsed: raw.audioUsed,
+                frames: raw.frames,
+                device: raw.device,
+                inferenceSeconds: raw.inferenceSeconds,
+                model: raw.model,
+                interpretation: interpretation
+            )
+            streamingResponse = response
+            state = .result(response)
+            statusMessage = "Gemini context review ready — review before speech"
+        case "error":
+            state = .failed(object["message"] as? String ?? "Live stream failed")
+            streamingClient = nil
+        default:
+            break
+        }
     }
 }

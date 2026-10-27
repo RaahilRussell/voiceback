@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api import v1 as v1_api
 from app.main import app
 from app.schemas.interpretation import InterpretationResult
 from app.services.gemini_client import get_gemini_client
@@ -148,3 +149,45 @@ def test_gemini_outage_preserves_raw_transcript_without_approval():
     assert body["text"] == GOOD_RESULT["text"]
     assert body["audio_used"] is False
     assert "interpretation" not in body
+
+
+def test_stream_session_emits_bounded_events_and_final_candidates(monkeypatch):
+    model = _FakeModel(result=GOOD_RESULT)
+    interpretation = InterpretationResult(
+        original_text=GOOD_RESULT["text"],
+        corrected_text=GOOD_RESULT["text"],
+        candidates=GOOD_RESULT["candidates"],
+        selected_index=0,
+        confidence=0.96,
+        needs_clarification=False,
+    )
+    monkeypatch.setattr(v1_api, "get_visual_speech_model", lambda: model)
+    monkeypatch.setattr(v1_api.StreamingSession, "_encode_video", lambda self, frames=None: b"video")
+    monkeypatch.setattr(v1_api, "get_gemini_client", lambda: _FakeGemini(interpretation))
+
+    with TestClient(app).websocket_connect("/v1/sessions/client-session/stream") as socket:
+        ready = socket.receive_json()
+        assert ready["event"] == "session_ready"
+        assert ready["capabilities"]["model_streaming"] is False
+        socket.send_json({"type": "start", "fps": 25})
+        negotiated = socket.receive_json()
+        assert negotiated["event"] == "session_ready"
+        assert negotiated["capabilities"]["partial_hypotheses"] is False
+        assert socket.receive_json()["event"] == "utterance_started"
+        socket.send_bytes(b"jpeg-frame")
+        quality = socket.receive_json()
+        assert quality["event"] == "capture_quality"
+        assert quality["frame_count"] == 1
+        socket.send_json({"type": "end"})
+        partial = socket.receive_json()
+        final = socket.receive_json()
+        assert partial["event"] == "partial_hypothesis"
+        assert partial["generation_mode"] == "offline_final_decode"
+        assert final["event"] == "final_candidates"
+        assert final["text"] == GOOD_RESULT["text"]
+        context = socket.receive_json()
+        decision = socket.receive_json()
+        assert context["event"] == "context_result"
+        assert context["interpretation"]["corrected_text"] == GOOD_RESULT["text"]
+        assert decision["event"] == "decision"
+        assert decision["decision"] == "awaiting_approval"

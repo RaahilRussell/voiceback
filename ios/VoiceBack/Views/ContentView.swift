@@ -26,8 +26,11 @@ struct ContentView: View {
         switch viewModel.state {
         case .ready:
             VStack(spacing: 10) {
-                Button("Start silent capture") { Task { await viewModel.record() } }
+                Button("Start live silent stream") { viewModel.startLiveStream() }
                     .buttonStyle(.borderedProminent)
+                    .accessibilityHint("Streams front-camera video frames without microphone audio")
+                Button("Start silent capture") { Task { await viewModel.record() } }
+                    .buttonStyle(.bordered)
                     .accessibilityHint("Uses the front camera and does not record microphone audio")
                 Button("Enroll my voice (consent)") { Task { await viewModel.enrollVoice() } }
                     .buttonStyle(.bordered)
@@ -40,6 +43,16 @@ struct ContentView: View {
 
         case .uploading:
             ProgressView()
+
+        case .streaming:
+            VStack(spacing: 8) {
+                ProgressView()
+                Text("The current checkpoint emits a final transcript after the utterance; live frame transport is active.")
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+            }
+            Button("Finish live utterance") { viewModel.stopLiveStream() }
+                .buttonStyle(.borderedProminent)
 
         case .enrolling:
             ProgressView("Enrolling consented voice…")
