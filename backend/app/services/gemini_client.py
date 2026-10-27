@@ -110,10 +110,12 @@ class GeminiClient:
             "You are a conservative visual-speech verifier. Return exactly one JSON decision. "
             "Choose only among the supplied candidate sentences; never invent, rewrite, or "
             "combine words. Do not treat confidence as a calibrated probability. Only add a "
-            "word_check when the word is present in the supplied text and the alternative is "
-            "a plausible lip-motion collision such as PRO/BRO, B/P, M/N, or F/V. Never create "
-            "checks for ordinary unambiguous words. Set needs_clarification true for genuine "
-            "candidate disagreement or an uncertain collision. Do not authorize speech.\n\n"
+            "word_check for a supplied-candidate word disagreement when the surrounding "
+            "sentence context helps rank the alternatives. Use the prefix and suffix context "
+            "to estimate which supplied word is more likely next. Never invent an alternative "
+            "outside the supplied candidates. Set needs_clarification true when the visual "
+            "evidence and language context do not separate the alternatives. Do not authorize "
+            "speech.\n\n"
             f"Original visual transcription: {original_text}\n"
             f"Candidates (JSON): {json.dumps(candidates, ensure_ascii=False)}\n"
             f"Visual decoder evidence (raw scores, not probabilities): "
@@ -153,6 +155,18 @@ class GeminiClient:
             selected = supplied[0]
         checks = []
         source_words = {word.casefold() for word in re.findall(r"[A-Za-z']+", original_text)}
+        candidate_word_alternatives: set[str] = set()
+        candidate_word_lists = [
+            re.findall(r"[A-Za-z']+", candidate.casefold()) for candidate in supplied
+        ]
+        for index in range(max((len(words) for words in candidate_word_lists), default=0)):
+            alternatives = {
+                words[index]
+                for words in candidate_word_lists
+                if index < len(words)
+            }
+            if len(alternatives) > 1:
+                candidate_word_alternatives.update(alternatives)
         for check in result.word_checks:
             observed = check.observed_word.strip()
             alternatives = [item.strip() for item in check.alternatives if item.strip()]
@@ -161,7 +175,12 @@ class GeminiClient:
                 for group in _VISUAL_CONFUSION_GROUPS
                 for alternative in alternatives
             )
-            if plausible and observed.casefold() in source_words:
+            candidate_grounded = (
+                observed.casefold() in source_words
+                and alternatives
+                and all(item.casefold() in candidate_word_alternatives for item in alternatives)
+            )
+            if (plausible or candidate_grounded) and observed.casefold() in source_words:
                 checks.append(check.model_copy(update={"alternatives": alternatives[:4]}))
         sanitized = InterpretationResult.model_validate(
             {

@@ -111,3 +111,29 @@ def test_context_review_routes_low_margin_candidate_disagreement() -> None:
         ["THIS IS THE GROUND TRUTH", "THIS IS THE GROUND TRUCE"],
         [{"raw_score": -1.0}, {"raw_score": -1.4}],
     ) is True
+
+
+def test_candidate_grounded_word_check_survives_sanitization() -> None:
+    result = InterpretationResult(
+        original_text="THIS IS THE GROUND TRUTH",
+        corrected_text="THIS IS THE GROUND TRUTH",
+        candidates=["THIS IS THE GROUND TRUTH", "THIS IS THE CROWN TRUTH"],
+        selected_index=0,
+        confidence=0.86,
+        needs_clarification=True,
+        clarification_question="Did you mean ground or crown truth?",
+        word_checks=[
+            WordCheck(
+                observed_word="GROUND",
+                alternatives=["CROWN"],
+                confidence=0.86,
+                needs_clarification=True,
+            )
+        ],
+    )
+    gated = GeminiClient._sanitize_and_gate(
+        result,
+        "THIS IS THE GROUND TRUTH",
+        ["THIS IS THE GROUND TRUTH", "THIS IS THE CROWN TRUTH"],
+    )
+    assert gated.word_checks[0].alternatives == ["CROWN"]
