@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     model_beam_size: int = Field(default=5, validation_alias=AliasChoices("VOICEBACK_MODEL_BEAM_SIZE", "MODEL_BEAM_SIZE"))
     lm_model_name: str | None = Field(default=None, validation_alias=AliasChoices("VOICEBACK_LM_MODEL_NAME", "LM_MODEL_NAME"))
     lm_fusion_weight: float = Field(default=0.0, validation_alias=AliasChoices("VOICEBACK_LM_FUSION_WEIGHT", "LM_FUSION_WEIGHT"))
+    developer_mode: bool = Field(default=False, validation_alias=AliasChoices("VOICEBACK_DEVELOPER_MODE", "DEVELOPER_MODE"))
     demo_mode: bool = Field(default=False, validation_alias=AliasChoices("VOICEBACK_DEMO_MODE", "DEMO_MODE"))
     real_model: bool = Field(default=True, validation_alias=AliasChoices("VOICEBACK_REAL_MODEL", "REAL_MODEL"))
     allow_video_upload: bool = Field(default=True, validation_alias=AliasChoices("VOICEBACK_ALLOW_VIDEO_UPLOAD", "ALLOW_VIDEO_UPLOAD"))

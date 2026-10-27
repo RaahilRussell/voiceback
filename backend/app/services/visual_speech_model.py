@@ -19,13 +19,13 @@ class VisualSpeechError(RuntimeError):
 
 
 class VisualSpeechModel(Protocol):
-    def predict(self, video_bytes: bytes) -> dict: ...
+    def predict(self, video_bytes: bytes, developer_mode: bool = False) -> dict: ...
 
 
 class ModalVisualSpeechModel:
     """Calls the deployed Modal visual-only Auto-AVSR function."""
 
-    def predict(self, video_bytes: bytes) -> dict:
+    def predict(self, video_bytes: bytes, developer_mode: bool = False) -> dict:
         import modal
 
         function = modal.Function.from_name(MODAL_APP, MODAL_FUNCTION)
@@ -38,7 +38,7 @@ class LocalVisualSpeechModel:
     def __init__(self) -> None:
         self._adapter = None
 
-    def predict(self, video_bytes: bytes) -> dict:
+    def predict(self, video_bytes: bytes, developer_mode: bool = False) -> dict:
         if not settings.real_model:
             raise VisualSpeechError("REAL_MODEL=false; synthetic recognition is not enabled")
         if not settings.model_checkpoint_path:
@@ -70,7 +70,7 @@ class LocalVisualSpeechModel:
                     check=True,
                     capture_output=True,
                 )
-                return self._adapter.transcribe_video(normalized)
+                return self._adapter.transcribe_video(normalized, developer_mode=developer_mode)
             except FileNotFoundError as exc:
                 raise VisualSpeechError("ffmpeg is required for local visual-only inference") from exc
             except subprocess.CalledProcessError as exc:

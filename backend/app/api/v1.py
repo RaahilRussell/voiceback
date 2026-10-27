@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, WebSocket
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile, WebSocket
 
 from app.config import DEFAULT_CARTESIA_VOICE_ID, settings
 from app.schemas.actions import (
@@ -73,6 +73,7 @@ async def create_transcription(
     file: UploadFile = File(...),  # noqa: B008
     model: VisualSpeechModel = Depends(get_visual_speech_model),  # noqa: B008
     gemini: GeminiClient = Depends(get_gemini_client),  # noqa: B008
+    developer_mode: bool = Header(default=False, alias="X-VoiceBack-Developer-Mode"),
 ) -> TranscriptionResponse:
     """Return raw Auto-AVSR output plus an optional Gemini proposal.
 
@@ -94,7 +95,7 @@ async def create_transcription(
         raise HTTPException(status_code=413, detail="video exceeds the maximum upload size")
 
     try:
-        result = model.predict(data)
+        result = model.predict(data, developer_mode=developer_mode or settings.developer_mode)
     except VisualSpeechError as exc:
         # Recoverable: no detectable face, unintelligible, etc.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -115,22 +116,66 @@ async def create_transcription(
         result.get("device"),
     )
     interpretation = None
+    diagnostics_enabled = developer_mode or settings.developer_mode
+    diagnostics = result.get("developer_diagnostics") if diagnostics_enabled else None
+    if diagnostics_enabled:
+        diagnostics = dict(diagnostics or {})
+        diagnostics["enabled"] = True
+        diagnostics["gemini"] = getattr(gemini, "last_diagnostics", {
+            "available": bool(gemini.api_key),
+            "invoked": False,
+            "model": getattr(gemini, "model", "unknown"),
+            "reason": "not_run",
+        })
     candidates = (result.get("candidates") or [result["text"]])[:5]
     candidate_scores = result.get("candidate_scores")
-    if gemini.api_key and GeminiClient.should_review(result["text"], candidates, candidate_scores):
+    review_requested = GeminiClient.should_review(result["text"], candidates, candidate_scores)
+    if diagnostics_enabled and len(set(candidates)) > 1:
+        # Developer mode deliberately exposes the full outer interaction so a
+        # diagnosis can distinguish "not invoked" from a provider outage.
+        review_requested = True
+        if diagnostics is not None:
+            diagnostics["gemini_review_routing"] = "developer_mode_forced_multi_candidate_review"
+    if gemini.api_key and review_requested:
         try:
             kwargs = {"original_text": result["text"], "candidates": candidates}
             if candidate_scores:
                 kwargs["candidate_scores"] = candidate_scores
             interpretation = await gemini.interpret(**kwargs)
+            if diagnostics_enabled:
+                diagnostics["gemini"] = dict(getattr(gemini, "last_diagnostics", {
+                    "available": True,
+                    "invoked": True,
+                    "model": getattr(gemini, "model", "test-double"),
+                    "reason": "request_completed",
+                }))
         except Exception as exc:  # noqa: BLE001 - provider outages must not erase raw VSR
             # Gemini is an optional review layer. Never discard a valid visual
             # transcript because the external correction provider is busy or
             # temporarily unavailable; the client will show the raw result and
             # keep speech approval unavailable until review can be completed.
             logger.warning("gemini interpretation unavailable; returning raw transcript: %s", exc)
+            if diagnostics_enabled:
+                diagnostics["gemini"] = {
+                    **dict(getattr(gemini, "last_diagnostics", {})),
+                    "available": False,
+                    "reason": str(exc),
+                }
+    elif diagnostics_enabled:
+        diagnostics["gemini"] = {
+            **dict(getattr(gemini, "last_diagnostics", {})),
+            "available": bool(gemini.api_key),
+            "invoked": False,
+            "reason": "not_needed_for_this_candidate_set" if gemini.api_key else "GEMINI_API_KEY is not configured",
+        }
 
-    return TranscriptionResponse(**result, interpretation=interpretation)
+    response_data = dict(result)
+    response_data.pop("developer_diagnostics", None)
+    return TranscriptionResponse(
+        **response_data,
+        interpretation=interpretation,
+        developer_diagnostics=diagnostics,
+    )
 
 
 @router.post("/clarifications", response_model=ClarificationResponse)

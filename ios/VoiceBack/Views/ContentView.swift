@@ -63,6 +63,9 @@ struct ContentView: View {
                 ApprovalCard(response: response) {
                     viewModel.approve(response)
                 }
+                if let diagnostics = response.developerDiagnostics {
+                    DeveloperDiagnosticsView(diagnostics: diagnostics)
+                }
                 Text("\(response.frames) frames · \(String(format: "%.1f", response.inferenceSeconds))s · audio used: \(response.audioUsed ? "yes" : "no")")
                     .font(.caption)
                     .foregroundStyle(.secondary)

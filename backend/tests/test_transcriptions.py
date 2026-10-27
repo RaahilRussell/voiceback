@@ -23,7 +23,7 @@ class _FakeModel:
         self.result = result
         self.error = error
 
-    def predict(self, video_bytes: bytes) -> dict:
+    def predict(self, video_bytes: bytes, developer_mode: bool = False) -> dict:
         assert isinstance(video_bytes, bytes) and video_bytes
         if self.error is not None:
             raise self.error
@@ -71,7 +71,8 @@ def test_transcription_success_returns_typed_payload():
     body = response.json()
     assert body["text"] == "THIS IS THE GROUND TRUTH"
     assert body["audio_used"] is False
-    assert set(body.keys()) == set(GOOD_RESULT.keys())
+    assert set(GOOD_RESULT.keys()).issubset(body.keys())
+    assert body["developer_diagnostics"]["enabled"] is True
 
 
 def test_rejects_non_video_upload():

@@ -32,6 +32,12 @@ class GeminiClient:
         self.api_key = api_key
         self.model = model
         self._client = None
+        self.last_diagnostics: dict[str, object] = {
+            "available": bool(api_key),
+            "invoked": False,
+            "model": model,
+            "reason": "not_run",
+        }
 
     async def interpret(
         self,
@@ -43,6 +49,12 @@ class GeminiClient:
         """Return one typed decision; never authorize speech by itself."""
 
         if not self.api_key:
+            self.last_diagnostics = {
+                "available": False,
+                "invoked": False,
+                "model": self.model,
+                "reason": "GEMINI_API_KEY is not configured",
+            }
             raise RuntimeError("GEMINI_API_KEY is required for interpretation")
         if not candidates:
             raise ValueError("at least one transcription candidate is required")
@@ -122,6 +134,19 @@ class GeminiClient:
             f"{json.dumps(candidate_scores or [], ensure_ascii=False)}\n"
             f"Conversation context: {context or '(none)'}"
         )
+        self.last_diagnostics = {
+            "available": True,
+            "invoked": True,
+            "model": self.model,
+            "reason": "request_sent",
+            "request": {
+                "prompt": prompt,
+                "temperature": 0.0,
+                "top_p": 0.1,
+                "seed": 7,
+                "max_output_tokens": 512,
+            },
+        }
         response = self._client.models.generate_content(
             model=self.model,
             contents=prompt,
@@ -131,10 +156,16 @@ class GeminiClient:
                 temperature=0.0,
                 top_p=0.1,
                 candidate_count=1,
-                max_output_tokens=256,
+                max_output_tokens=512,
                 seed=7,
             ),
         )
+        self.last_diagnostics["response_text"] = getattr(response, "text", None)
+        parsed = getattr(response, "parsed", None)
+        self.last_diagnostics["response_parsed"] = (
+            parsed.model_dump() if hasattr(parsed, "model_dump") else parsed
+        )
+        self.last_diagnostics["reason"] = "request_completed"
         if getattr(response, "parsed", None) is not None:
             result = response.parsed
             if isinstance(result, InterpretationResult):

@@ -28,3 +28,4 @@ class TranscriptionResponse(BaseModel):
     inference_seconds: float
     model: str
     interpretation: InterpretationResult | None = None
+    developer_diagnostics: dict[str, object] | None = None

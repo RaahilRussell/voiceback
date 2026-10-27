@@ -41,6 +41,10 @@ class CausalTextLMScorer(BatchPartialScorerInterface):
         self.device = device
         self._tokenizer = None
         self._model = None
+        self.trace: list[dict[str, object]] = []
+
+    def reset_trace(self) -> None:
+        self.trace = []
 
     def _load(self) -> None:
         if self._model is not None:
@@ -78,8 +82,18 @@ class CausalTextLMScorer(BatchPartialScorerInterface):
                 ids.append(token_id)
                 texts.append(prefix + token_text)
             values = self._continuation_log_probs(prefix, texts)
-            for token_id, value in zip(ids, values):
+            for token_text, token_id, value in zip(texts, ids, values):
                 scores[row, token_id] = value
+                if len(self.trace) < 256:
+                    self.trace.append(
+                        {
+                            "prefix": prefix,
+                            "candidate_token_id": token_id,
+                            "candidate_text": token_text,
+                            "lm_log_probability": value,
+                            "lm_probability": float(torch.exp(torch.tensor(value)).item()),
+                        }
+                    )
         return scores, [None] * ys.shape[0]
 
     def _continuation_log_probs(self, prefix: str, continuations: list[str]) -> list[float]:

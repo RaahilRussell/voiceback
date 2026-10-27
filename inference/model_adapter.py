@@ -95,11 +95,12 @@ class ModelAdapter:
             "device": device,
             "model": model_module,
             "beam_search": beam_search,
+            "lm_scorer": lm_scorer,
             "loader": AVSRDataLoader(modality="video", detector="mediapipe", convert_gray=False),
             "transform": VideoTransform(subset="test"),
         }
 
-    def transcribe_video(self, video_path: str) -> dict[str, object]:
+    def transcribe_video(self, video_path: str, developer_mode: bool = False) -> dict[str, object]:
         """Transcribe a video using visual frames only."""
 
         import av
@@ -127,6 +128,8 @@ class ModelAdapter:
         )
         with torch.inference_mode(), inference_context:
             model = pipeline["model"].model
+            if pipeline.get("lm_scorer") is not None:
+                pipeline["lm_scorer"].reset_trace()
             features = model.frontend(video.unsqueeze(0))
             features = model.proj_encoder(features)
             encoded, _ = model.encoder(features, None)
@@ -149,7 +152,7 @@ class ModelAdapter:
                 raise ValueError("Auto-AVSR beam decoder returned no text candidates")
             text = str(beam_candidates[0]["text"])
 
-        return {
+        result = {
             "text": text.strip(),
             "candidates": [item["text"] for item in beam_candidates],
             "candidate_scores": beam_candidates,
@@ -159,3 +162,17 @@ class ModelAdapter:
             "inference_seconds": round(time.perf_counter() - started, 3),
             "model": "mpc001/auto_avsr",
         }
+        if developer_mode:
+            lm_scorer = pipeline.get("lm_scorer")
+            result["developer_diagnostics"] = {
+                "enabled": True,
+                "visual_candidates": beam_candidates,
+                "fusion": {
+                    "model_name": self.lm_model_name,
+                    "weight": self.lm_fusion_weight,
+                    "enabled": bool(lm_scorer and self.lm_fusion_weight > 0),
+                    "score_formula": "visual_log_score + lambda * lm_log_probability",
+                },
+                "language_model_trace": list(lm_scorer.trace) if lm_scorer else [],
+            }
+        return result

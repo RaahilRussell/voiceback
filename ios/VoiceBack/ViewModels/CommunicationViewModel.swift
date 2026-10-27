@@ -247,7 +247,8 @@ final class CommunicationViewModel: ObservableObject {
                 device: object["device"] as? String ?? "unknown",
                 inferenceSeconds: object["inference_seconds"] as? Double ?? 0,
                 model: "mpc001/auto-avsr",
-                interpretation: nil
+                interpretation: nil,
+                developerDiagnostics: nil
             )
             streamingClient = nil
             streamingResponse = response
@@ -267,7 +268,8 @@ final class CommunicationViewModel: ObservableObject {
                 device: raw.device,
                 inferenceSeconds: raw.inferenceSeconds,
                 model: raw.model,
-                interpretation: interpretation
+                interpretation: interpretation,
+                developerDiagnostics: nil
             )
             streamingResponse = response
             state = .result(response)
