@@ -56,6 +56,8 @@ class LocalVisualSpeechModel:
                 device=settings.model_device,
                 upstream_root=settings.model_upstream_root,
                 beam_size=settings.model_beam_size,
+                lm_model_name=settings.lm_model_name,
+                lm_fusion_weight=settings.lm_fusion_weight,
             )
         with tempfile.TemporaryDirectory(prefix="voiceback-local-") as directory:
             source = f"{directory}/source.mov"

@@ -16,11 +16,13 @@ from pathlib import Path
 class ModelAdapter:
     """Stable VoiceBack interface for visual-only Auto-AVSR inference."""
 
-    def __init__(self, checkpoint_path: str | None = None, device: str = "auto", upstream_root: str = "/opt/auto_avsr", beam_size: int = 10) -> None:
+    def __init__(self, checkpoint_path: str | None = None, device: str = "auto", upstream_root: str = "/opt/auto_avsr", beam_size: int = 10, lm_model_name: str | None = None, lm_fusion_weight: float = 0.0) -> None:
         self.checkpoint_path = checkpoint_path
         self.device = device
         self.upstream_root = upstream_root
         self.beam_size = beam_size
+        self.lm_model_name = lm_model_name
+        self.lm_fusion_weight = lm_fusion_weight
         self._pipeline = None
 
     def _build_pipeline(self):
@@ -34,7 +36,9 @@ class ModelAdapter:
         sys.path.insert(0, self.upstream_root)
         sys.path.insert(0, str(Path(self.upstream_root) / "preparation"))
         from datamodule.transforms import VideoTransform
-        from lightning import ModelModule, get_beam_search_decoder
+        from espnet.nets.batch_beam_search import BatchBeamSearch
+        from espnet.nets.scorers.length_bonus import LengthBonus
+        from lightning import ModelModule
         from preparation.data.data_module import AVSRDataLoader
 
         if self.device in {"cuda", "cuda:0"} and torch.cuda.is_available():
@@ -52,13 +56,45 @@ class ModelAdapter:
         model_module.model.load_state_dict(checkpoint)
         model_module.model.to(device).eval()
 
+        lm_scorer = None
+        if self.lm_model_name and self.lm_fusion_weight > 0:
+            from inference.lm_scorer import CausalTextLMScorer
+
+            def decode_asr_ids(ids: list[int]) -> str:
+                usable = [item for item in ids if item not in {0, model_module.model.odim - 1}]
+                return model_module.text_transform.post_process(torch.tensor(usable)).replace("<eos>", "")
+
+            lm_scorer = CausalTextLMScorer(
+                token_list=model_module.token_list,
+                decode_ids=decode_asr_ids,
+                model_name=self.lm_model_name,
+                device="cpu",
+            )
+        scorers = model_module.model.scorers()
+        scorers["lm"] = lm_scorer
+        scorers["length_bonus"] = LengthBonus(len(model_module.token_list))
+        weights = {
+            "decoder": 0.9,
+            "ctc": 0.1,
+            "lm": self.lm_fusion_weight,
+            "length_bonus": 0.0,
+        }
+        beam_search = BatchBeamSearch(
+            beam_size=self.beam_size,
+            vocab_size=len(model_module.token_list),
+            weights=weights,
+            scorers=scorers,
+            sos=model_module.model.odim - 1,
+            eos=model_module.model.odim - 1,
+            token_list=model_module.token_list,
+            pre_beam_score_key="decoder",
+        )
+
         return {
             "torch": torch,
             "device": device,
             "model": model_module,
-            "beam_search": get_beam_search_decoder(
-                model_module.model, model_module.token_list, beam_size=self.beam_size
-            ),
+            "beam_search": beam_search,
             "loader": AVSRDataLoader(modality="video", detector="mediapipe", convert_gray=False),
             "transform": VideoTransform(subset="test"),
         }

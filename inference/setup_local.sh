@@ -8,7 +8,7 @@ PYTHON="${PYTHON:-python3.11}"
 "$ROOT/.venv-local/bin/python" -m pip install --upgrade pip
 "$ROOT/.venv-local/bin/python" -m pip install \
   torch torchvision torchaudio lightning sentencepiece av \
-  scikit-image gdown mediapipe==0.10.21
+  scikit-image gdown mediapipe==0.10.21 transformers>=4.45,<5
 
 "$ROOT/.venv-local/bin/python" -m pip install -e "$ROOT/backend[dev]"
 

@@ -8,7 +8,7 @@ receive its validated mouth-region input until a multimodal replacement is
 trained and benchmarked. Keep the original transcription visible and require
 explicit approval before Cartesia speech output.
 
-## Current handoff state — 2026-10-26
+## Current handoff state — 2026-10-27
 
 - Public repository: `https://github.com/RaahilRussell/voiceback` on `main`.
 - Physical-device app bundle: `com.raahilrussell.voiceback`.
@@ -48,4 +48,12 @@ explicit approval before Cartesia speech output.
 - Gemini Pro models are not usable with the current key's free-tier quota;
   `gemini-3.1-pro-preview` returned quota 0. Keep the model configurable and
   use Flash Lite for the latency-sensitive demo path until paid quota is added.
+- Optional visual-language shallow fusion is now wired into the actual
+  Auto-AVSR `BatchBeamSearch` insertion point. Configure `LM_MODEL_NAME` and
+  `LM_FUSION_WEIGHT`; the shipped `.env` keeps the weight at zero pending a
+  held-out accuracy benchmark. See `docs/FUSION_BENCHMARK.md` for the first
+  real-clip comparison and its measured tradeoff.
+- A typed specialist interface exists for P/B/M, F/V, and other viseme groups,
+  but returns `unavailable` until trained weights are supplied. No specialist
+  prediction is being claimed.
 
